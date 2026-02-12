@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scanner QR - Guía SUNAT</title>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.10/html5-qrcode.min.js"></script>
+
+<style>
+body{
+  font-family: Arial;
+  background:#0f172a;
+  color:white;
+  text-align:center;
+  padding:20px;
+}
+h2{margin-bottom:10px;}
+#reader{width:100%;max-width:350px;margin:auto;}
+table{
+  margin-top:20px;
+  width:100%;
+  border-collapse:collapse;
+}
+th,td{
+  border:1px solid #334155;
+  padding:8px;
+  font-size:14px;
+}
+th{background:#1e293b;}
+.ok{background:#14532d;}
+</style>
+</head>
+
+<body>
+
+<h2>Escanear QR - Guía SUNAT</h2>
+
+<div id="reader"></div>
+
+<button onclick="startQR()">Iniciar Cámara</button>
+<button onclick="stopQR()">Detener</button>
+
+<table>
+<tr><th>Campo</th><th>Valor</th></tr>
+<tr><td>FECHA</td><td id="fecha"></td></tr>
+<tr><td>SERIE</td><td id="serie"></td></tr>
+<tr><td>NÚMERO</td><td id="numero"></td></tr>
+<tr><td>RUC</td><td id="ruc"></td></tr>
+<tr><td>URL</td><td id="url"></td></tr>
+</table>
+
+<script>
+let qr;
+let running=false;
+
+function startQR(){
+  if(!window.isSecureContext){
+    alert("Debes usar HTTPS (Netlify o GitHub Pages)");
+    return;
+  }
+
+  qr = new Html5Qrcode("reader");
+  running=true;
+
+  qr.start(
+    { facingMode: "environment" },
+    { fps:10, qrbox:250 },
+    (decodedText) => {
+
+      document.getElementById("url").innerText = decodedText;
+
+      // Extraer datos típicos del QR SUNAT
+      // Normalmente viene algo como:
+      // RUC|TIPO|SERIE|NUMERO|FECHA|MONTO|...
+      
+      const parts = decodedText.split("|");
+
+      if(parts.length > 4){
+        document.getElementById("ruc").innerText = parts[0] || "";
+        document.getElementById("serie").innerText = parts[2] || "";
+        document.getElementById("numero").innerText = parts[3] || "";
+        document.getElementById("fecha").innerText = parts[4] || "";
+      }
+
+    },
+    (error) => {}
+  );
+}
+
+function stopQR(){
+  if(qr && running){
+    qr.stop();
+    running=false;
+  }
+}
+</script>
+
+</body>
+</html>
