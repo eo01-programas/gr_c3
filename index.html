@@ -1,99 +1,138 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Scanner QR - Guía SUNAT</title>
-
 <script src="https://unpkg.com/html5-qrcode@2.3.10/html5-qrcode.min.js"></script>
 
 <style>
-body{
-  font-family: Arial;
-  background:#0f172a;
-  color:white;
-  text-align:center;
-  padding:20px;
-}
-h2{margin-bottom:10px;}
-#reader{width:100%;max-width:350px;margin:auto;}
-table{
-  margin-top:20px;
-  width:100%;
-  border-collapse:collapse;
-}
-th,td{
-  border:1px solid #334155;
-  padding:8px;
-  font-size:14px;
-}
-th{background:#1e293b;}
-.ok{background:#14532d;}
+  body{font-family:Arial;background:#0f172a;color:#fff;text-align:center;padding:18px}
+  #reader{width:100%;max-width:360px;margin:12px auto}
+  button{padding:10px 14px;border-radius:10px;border:0;margin:6px;cursor:pointer}
+  .b1{background:#22c55e;color:#052e16;font-weight:700}
+  .b2{background:transparent;border:1px solid #334155;color:#fff}
+  #msg{margin:10px auto;max-width:520px;background:#111827;border:1px solid #334155;border-radius:12px;padding:10px;text-align:left}
+  table{margin-top:14px;width:100%;border-collapse:collapse}
+  th,td{border:1px solid #334155;padding:8px;font-size:14px}
+  th{background:#1e293b}
+  a{color:#93c5fd;word-break:break-all}
 </style>
 </head>
 
 <body>
+  <h2>Escanear QR - Guía SUNAT</h2>
 
-<h2>Escanear QR - Guía SUNAT</h2>
+  <div id="msg">Estado: <b id="status">Listo</b><br>
+    <span id="detail" style="color:#a7b2c7"></span>
+  </div>
 
-<div id="reader"></div>
+  <div id="reader"></div>
 
-<button onclick="startQR()">Iniciar Cámara</button>
-<button onclick="stopQR()">Detener</button>
+  <button class="b1" id="btnStart">Iniciar cámara</button>
+  <button class="b2" id="btnStop" disabled>Detener</button>
 
-<table>
-<tr><th>Campo</th><th>Valor</th></tr>
-<tr><td>FECHA</td><td id="fecha"></td></tr>
-<tr><td>SERIE</td><td id="serie"></td></tr>
-<tr><td>NÚMERO</td><td id="numero"></td></tr>
-<tr><td>RUC</td><td id="ruc"></td></tr>
-<tr><td>URL</td><td id="url"></td></tr>
-</table>
+  <table>
+    <tr><th>Campo</th><th>Valor</th></tr>
+    <tr><td>FECHA</td><td id="fecha"></td></tr>
+    <tr><td>SERIE</td><td id="serie"></td></tr>
+    <tr><td>NÚMERO</td><td id="numero"></td></tr>
+    <tr><td>RUC</td><td id="ruc"></td></tr>
+    <tr><td>URL</td><td id="url"></td></tr>
+  </table>
 
 <script>
-let qr;
-let running=false;
+let qr = null;
+let running = false;
 
-function startQR(){
-  if(!window.isSecureContext){
-    alert("Debes usar HTTPS (Netlify o GitHub Pages)");
-    return;
-  }
+const $ = (id)=>document.getElementById(id);
+function setMsg(s, d=""){
+  $("status").textContent = s;
+  $("detail").textContent = d;
+}
 
-  qr = new Html5Qrcode("reader");
-  running=true;
+$("btnStart").onclick = async () => {
+  try {
+    // 1) HTTPS obligatorio (excepto localhost)
+    if (!window.isSecureContext) {
+      setMsg("Necesitas HTTPS", "Abre esta web en un link https:// (Netlify/GitHub Pages).");
+      alert("Necesitas HTTPS. No funciona en file:// o http://");
+      return;
+    }
 
-  qr.start(
-    { facingMode: "environment" },
-    { fps:10, qrbox:250 },
-    (decodedText) => {
+    // 2) Pide permiso explícito primero (ayuda mucho en iPhone/Safari)
+    await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
 
-      document.getElementById("url").innerText = decodedText;
+    // 3) Crear lector
+    if (!qr) qr = new Html5Qrcode("reader");
 
-      // Extraer datos típicos del QR SUNAT
-      // Normalmente viene algo como:
-      // RUC|TIPO|SERIE|NUMERO|FECHA|MONTO|...
-      
-      const parts = decodedText.split("|");
+    // 4) Detectar cámaras y escoger la trasera
+    const cams = await Html5Qrcode.getCameras();
+    if (!cams || !cams.length) throw new Error("No se detectaron cámaras.");
 
-      if(parts.length > 4){
-        document.getElementById("ruc").innerText = parts[0] || "";
-        document.getElementById("serie").innerText = parts[2] || "";
-        document.getElementById("numero").innerText = parts[3] || "";
-        document.getElementById("fecha").innerText = parts[4] || "";
+    const back = cams.find(c => /back|rear|environment/i.test(c.label));
+    const camId = (back || cams[cams.length-1]).id;
+
+    setMsg("Abriendo cámara…", "Si no abre, revisa permisos del navegador.");
+    $("btnStart").disabled = true;
+    $("btnStop").disabled = false;
+
+    running = true;
+    await qr.start(
+      { deviceId: { exact: camId } },
+      { fps: 10, qrbox: 250 },
+      (decodedText) => {
+        // Mostrar URL
+        $("url").innerHTML = `<a href="${decodedText}" target="_blank" rel="noopener">${decodedText}</a>`;
+
+        // Parse típico SUNAT: RUC|TIPO|SERIE|NUMERO|FECHA|...
+        const parts = decodedText.split("|");
+        if (parts.length >= 5) {
+          $("ruc").textContent = parts[0] || "";
+          $("serie").textContent = parts[2] || "";
+          $("numero").textContent = parts[3] || "";
+          $("fecha").textContent = parts[4] || "";
+        } else {
+          // Si el QR no viene con "|" igual queda la URL visible
+          setMsg("QR leído", "El contenido no tiene formato con '|', pero ya quedó como URL.");
+        }
+
+        setMsg("QR leído ✅", "Ya puedes escanear otra guía o detener.");
       }
+    );
 
-    },
-    (error) => {}
-  );
-}
+    setMsg("Cámara activa ✅", "Apunta al QR.");
 
-function stopQR(){
-  if(qr && running){
-    qr.stop();
-    running=false;
+  } catch (e) {
+    console.error(e);
+    const name = e?.name || "";
+    let msg = "No se pudo abrir la cámara.";
+    let det = "";
+
+    if (name === "NotAllowedError") det = "Permiso de cámara DENEGADO. Actívalo en permisos del sitio.";
+    else if (name === "NotFoundError") det = "No se encontró cámara o está deshabilitada.";
+    else if (name === "NotReadableError") det = "Cámara ocupada por otra app (WhatsApp/Instagram). Cierra y prueba.";
+    else det = (e?.message || "Revisa HTTPS y permisos.");
+
+    setMsg(msg, det);
+    $("btnStart").disabled = false;
+    $("btnStop").disabled = true;
+    running = false;
   }
-}
+};
+
+$("btnStop").onclick = async () => {
+  try{
+    if (qr && running) {
+      await qr.stop();
+      await qr.clear();
+    }
+  }catch(_){}
+  running = false;
+  $("btnStart").disabled = false;
+  $("btnStop").disabled = true;
+  setMsg("Detenido", "Puedes iniciar nuevamente.");
+};
 </script>
 
 </body>
