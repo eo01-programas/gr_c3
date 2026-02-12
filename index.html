@@ -4,6 +4,10 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Scanner QR SUNAT</title>
+
+  <!-- CARGA LOCAL (NO CDN) -->
+  <script src="./html5-qrcode.min.js"></script>
+
   <style>
     body{font-family:Arial;background:#0f172a;color:#fff;text-align:center;padding:18px}
     #reader{width:100%;max-width:360px;margin:12px auto}
@@ -21,13 +25,13 @@
 
 <h2>Escanear QR - Guía SUNAT</h2>
 
-<div id="msg">Estado: <b id="status">Cargando librería…</b><br>
+<div id="msg">Estado: <b id="status">Listo</b><br>
   <span id="detail" style="color:#a7b2c7"></span>
 </div>
 
 <div id="reader"></div>
 
-<button class="b1" id="btnStart" disabled>Iniciar cámara</button>
+<button class="b1" id="btnStart">Iniciar cámara</button>
 <button class="b2" id="btnStop" disabled>Detener</button>
 
 <table>
@@ -40,113 +44,76 @@
 </table>
 
 <script>
-  // 1) Carga dinámica con fallback (unpkg -> jsdelivr)
-  function loadScript(src){
-    return new Promise((resolve, reject)=>{
-      const s=document.createElement("script");
-      s.src=src;
-      s.onload=resolve;
-      s.onerror=reject;
-      document.head.appendChild(s);
-    });
-  }
+const $=(id)=>document.getElementById(id);
+function setMsg(s,d=""){ $("status").textContent=s; $("detail").textContent=d; }
 
-  const $=(id)=>document.getElementById(id);
-  function setMsg(s,d=""){ $("status").textContent=s; $("detail").textContent=d; }
+let qr=null, running=false;
 
-  async function ensureHtml5Qrcode(){
-    try{
-      await loadScript("https://unpkg.com/html5-qrcode@2.3.10/html5-qrcode.min.js");
-      return true;
-    }catch(_){
-      try{
-        await loadScript("https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.10/html5-qrcode.min.js");
-        return true;
-      }catch(e){
-        return false;
-      }
-    }
-  }
-
-  let qr=null, running=false;
-
-  async function init(){
-    const ok = await ensureHtml5Qrcode();
-    if(!ok || typeof Html5Qrcode === "undefined"){
-      setMsg("No se pudo cargar html5-qrcode",
-        "Tu red/bloqueador está impidiendo descargar la librería (unpkg/jsdelivr). Prueba con datos móviles o sin VPN.");
+$("btnStart").onclick = async () => {
+  try{
+    if(typeof Html5Qrcode === "undefined"){
+      setMsg("No cargó la librería local", "Verifica que html5-qrcode.min.js esté en la misma carpeta del index.html");
       return;
     }
-    setMsg("Listo ✅", "Presiona “Iniciar cámara”.");
-    $("btnStart").disabled=false;
-  }
 
-  $("btnStart").onclick = async () => {
-    try{
-      if(!window.isSecureContext){
-        alert("Debe ser HTTPS (ya lo estás usando).");
-        return;
-      }
+    // Pide permiso
+    await navigator.mediaDevices.getUserMedia({video:true,audio:false});
 
-      // pide permiso (mejora compatibilidad)
-      await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+    if(!qr) qr = new Html5Qrcode("reader");
 
-      if(!qr) qr = new Html5Qrcode("reader");
+    const cams = await Html5Qrcode.getCameras();
+    if(!cams || !cams.length) throw new Error("No se detectaron cámaras");
 
-      const cams = await Html5Qrcode.getCameras();
-      if(!cams || !cams.length) throw new Error("No se detectaron cámaras");
+    const back = cams.find(c => /back|rear|environment/i.test(c.label));
+    const camId = (back || cams[cams.length-1]).id;
 
-      const back = cams.find(c => /back|rear|environment/i.test(c.label));
-      const camId = (back || cams[cams.length-1]).id;
+    $("btnStart").disabled=true;
+    $("btnStop").disabled=false;
 
-      $("btnStart").disabled=true;
-      $("btnStop").disabled=false;
+    running=true;
+    setMsg("Cámara activa ✅","Apunta al QR.");
 
-      running=true;
-      setMsg("Cámara activa ✅","Apunta al QR.");
+    await qr.start(
+      { deviceId: { exact: camId } },
+      { fps: 10, qrbox: 250 },
+      (decodedText) => {
+        $("url").innerHTML = `<a href="${decodedText}" target="_blank" rel="noopener">${decodedText}</a>`;
 
-      await qr.start(
-        { deviceId: { exact: camId } },
-        { fps: 10, qrbox: 250 },
-        (decodedText) => {
-          $("url").innerHTML = `<a href="${decodedText}" target="_blank" rel="noopener">${decodedText}</a>`;
-
-          const parts = decodedText.split("|");
-          if(parts.length >= 5){
-            $("ruc").textContent = parts[0] || "";
-            $("serie").textContent = parts[2] || "";
-            $("numero").textContent = parts[3] || "";
-            $("fecha").textContent = parts[4] || "";
-          }
-          setMsg("QR leído ✅","Listo.");
+        const parts = decodedText.split("|");
+        if(parts.length >= 5){
+          $("ruc").textContent = parts[0] || "";
+          $("serie").textContent = parts[2] || "";
+          $("numero").textContent = parts[3] || "";
+          $("fecha").textContent = parts[4] || "";
         }
-      );
-    }catch(e){
-      console.error(e);
-      const name = e?.name || "";
-      let det = e?.message || "";
-      if(name==="NotAllowedError") det="Permiso de cámara DENEGADO. Actívalo en permisos del sitio.";
-      setMsg("No se pudo abrir la cámara.", det);
-      $("btnStart").disabled=false;
-      $("btnStop").disabled=true;
-      running=false;
-    }
-  };
-
-  $("btnStop").onclick = async () => {
-    try{
-      if(qr && running){
-        await qr.stop();
-        await qr.clear();
+        setMsg("QR leído ✅","Listo.");
       }
-    }catch(_){}
-    running=false;
+    );
+  }catch(e){
+    console.error(e);
+    const name = e?.name || "";
+    let det = e?.message || "";
+    if(name==="NotAllowedError") det="Permiso de cámara DENEGADO. Actívalo en permisos del sitio.";
+    if(name==="NotReadableError") det="Cámara ocupada por otra app (WhatsApp/Instagram). Cierra y prueba.";
+    setMsg("No se pudo abrir la cámara.", det);
     $("btnStart").disabled=false;
     $("btnStop").disabled=true;
-    setMsg("Detenido","Puedes iniciar nuevamente.");
-  };
+    running=false;
+  }
+};
 
-  init();
+$("btnStop").onclick = async () => {
+  try{
+    if(qr && running){
+      await qr.stop();
+      await qr.clear();
+    }
+  }catch(_){}
+  running=false;
+  $("btnStart").disabled=false;
+  $("btnStop").disabled=true;
+  setMsg("Detenido","Puedes iniciar nuevamente.");
+};
 </script>
 
 </body>
