@@ -1,300 +1,254 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>QR SUNAT → PDF → Nº Guía y Fecha</title>
-  <style>
-    :root { color-scheme: light; }
-    body { font-family: system-ui, Arial; margin: 16px; }
-    .wrap { max-width: 860px; margin: 0 auto; }
-    h1 { font-size: 20px; margin: 0 0 10px; }
-    .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; margin-top: 12px; }
-    .row { display: grid; grid-template-columns: 1fr; gap: 10px; }
-    @media (min-width: 860px) { .row { grid-template-columns: 1.2fr 0.8fr; } }
-    video { width: 100%; border: 1px solid #e5e7eb; border-radius: 12px; background: #000; }
-    button, input[type="file"]::file-selector-button {
-      appearance: none;
-      border: 1px solid #d1d5db;
-      background: #fff;
-      padding: 10px 12px;
-      border-radius: 10px;
-      cursor: pointer;
-      font-weight: 600;
-    }
-    button:disabled { opacity: 0.6; cursor: not-allowed; }
-    .btns { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-    .muted { color: #6b7280; font-size: 13px; word-break: break-all; }
-    .ok { color: #065f46; }
-    .warn { color: #92400e; }
-    .err { color: #991b1b; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border: 1px solid #e5e7eb; padding: 10px; text-align: left; }
-    th { background: #f9fafb; }
-    code { background: #f3f4f6; padding: 2px 6px; border-radius: 6px; }
-    details { margin-top: 10px; }
-    pre { white-space: pre-wrap; background: #0b1020; color: #e5e7eb; padding: 10px; border-radius: 10px; overflow: auto; }
-    .pill { display:inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid #e5e7eb; font-size: 12px; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QR SUNAT → Nº Guía + Fecha</title>
+
+<style>
+body{
+  font-family: system-ui, Arial;
+  margin:20px;
+  background:#f4f6f9;
+}
+.container{
+  max-width:900px;
+  margin:auto;
+}
+h1{
+  font-size:20px;
+}
+.card{
+  background:white;
+  padding:15px;
+  border-radius:12px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.08);
+  margin-bottom:15px;
+}
+video{
+  width:100%;
+  border-radius:12px;
+  background:black;
+}
+button{
+  padding:10px 14px;
+  border-radius:8px;
+  border:1px solid #ddd;
+  font-weight:600;
+  cursor:pointer;
+}
+button:disabled{
+  opacity:0.6;
+  cursor:not-allowed;
+}
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:10px;
+}
+th,td{
+  border:1px solid #e5e7eb;
+  padding:10px;
+  text-align:left;
+}
+th{
+  background:#f1f5f9;
+}
+.status{
+  font-size:13px;
+  margin-top:8px;
+}
+.ok{color:green;}
+.err{color:red;}
+.warn{color:#b45309;}
+pre{
+  background:#111827;
+  color:#e5e7eb;
+  padding:10px;
+  border-radius:10px;
+  overflow:auto;
+}
+</style>
 </head>
+
 <body>
-<div class="wrap">
-  <h1>QR SUNAT → PDF → <span class="pill">N° Guía</span> + <span class="pill">Fecha</span></h1>
+<div class="container">
 
-  <div class="card">
-    <div class="btns">
-      <button id="btnStart">Iniciar cámara (QR)</button>
-      <button id="btnStop" disabled>Detener</button>
-      <button id="btnClear">Limpiar</button>
-      <span class="muted">Requiere abrir esta página en <b>HTTPS</b> para usar cámara.</span>
-    </div>
-    <div style="margin-top:12px;">
-      <video id="video" muted playsinline></video>
-    </div>
-    <div class="muted" id="status">Listo.</div>
-    <div class="muted" id="qrraw"></div>
-    <div class="muted" id="finalurl"></div>
+<h1>QR SUNAT → PDF → Nº Guía + Fecha</h1>
+
+<div class="card">
+  <button id="btnStart">Iniciar Cámara</button>
+  <button id="btnStop" disabled>Detener</button>
+  <button id="btnClear">Limpiar</button>
+
+  <div style="margin-top:10px;">
+    <video id="video" muted playsinline></video>
   </div>
 
-  <div class="row">
-    <div class="card">
-      <b>Resultado</b>
-      <table>
-        <thead>
-          <tr><th>N° Guía</th><th>Fecha</th></tr>
-        </thead>
-        <tbody id="tbody">
-          <tr><td colspan="2">—</td></tr>
-        </tbody>
-      </table>
-      <div class="muted" style="margin-top:10px;">
-        Si el servidor del PDF bloquea descarga por navegador (<code>CORS</code>), usa el método 2:
-        descarga el PDF y súbelo aquí.
-      </div>
-    </div>
-
-    <div class="card">
-      <b>Método 2 (si CORS bloquea): subir el PDF desde el celular</b>
-      <div style="margin-top:10px;">
-        <input id="pdfFile" type="file" accept="application/pdf" />
-      </div>
-      <div class="muted" style="margin-top:10px;">
-        Este método no depende del QR ni de CORS: seleccionas el PDF descargado y extrae igual.
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <details>
-      <summary><b>Debug</b> (texto extraído del PDF)</summary>
-      <pre id="pdftext"></pre>
-    </details>
-  </div>
+  <div id="status" class="status">Listo.</div>
+  <div id="qrtext" class="status"></div>
+  <div id="finalurl" class="status"></div>
 </div>
 
-<!-- QR scanner (ZXing) -->
+<div class="card">
+  <b>Resultado</b>
+  <table>
+    <thead>
+      <tr>
+        <th>N° Guía</th>
+        <th>Fecha</th>
+      </tr>
+    </thead>
+    <tbody id="result">
+      <tr><td colspan="2">—</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <b>Alternativa (si CORS bloquea)</b>
+  <input type="file" id="pdfInput" accept="application/pdf">
+</div>
+
+<div class="card">
+  <details>
+    <summary>Texto extraído del PDF</summary>
+    <pre id="pdftext"></pre>
+  </details>
+</div>
+
+</div>
+
 <script src="https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js"></script>
-
-<!-- PDF.js + lógica -->
 <script type="module">
-  import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.min.mjs";
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.worker.min.mjs";
 
-  const videoEl = document.getElementById("video");
-  const tbody = document.getElementById("tbody");
-  const statusEl = document.getElementById("status");
-  const qrrawEl = document.getElementById("qrraw");
-  const finalurlEl = document.getElementById("finalurl");
-  const pdftextEl = document.getElementById("pdftext");
+import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.min.mjs";
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+"https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.worker.min.mjs";
 
-  const btnStart = document.getElementById("btnStart");
-  const btnStop  = document.getElementById("btnStop");
-  const btnClear = document.getElementById("btnClear");
-  const pdfFile  = document.getElementById("pdfFile");
+const video = document.getElementById("video");
+const status = document.getElementById("status");
+const qrtext = document.getElementById("qrtext");
+const finalurl = document.getElementById("finalurl");
+const resultTable = document.getElementById("result");
+const pdftext = document.getElementById("pdftext");
 
-  let codeReader = null;
-  let controls = null;
-  let processing = false;
-  let lastQrText = "";
+const btnStart = document.getElementById("btnStart");
+const btnStop = document.getElementById("btnStop");
+const btnClear = document.getElementById("btnClear");
+const pdfInput = document.getElementById("pdfInput");
 
-  function setStatus(msg, cls="") {
-    statusEl.className = "muted " + cls;
-    statusEl.textContent = msg;
+let codeReader;
+let controls;
+let scanning = false;
+
+function setStatus(msg, type=""){
+  status.className="status "+type;
+  status.textContent=msg;
+}
+
+function showResult(numero, fecha){
+  resultTable.innerHTML="";
+  const tr=document.createElement("tr");
+  tr.innerHTML=`<td>${numero || "(no encontrado)"}</td><td>${fecha || "(no encontrada)"}</td>`;
+  resultTable.appendChild(tr);
+}
+
+function clearAll(){
+  showResult("", "");
+  qrtext.textContent="";
+  finalurl.textContent="";
+  pdftext.textContent="";
+  setStatus("Listo.");
+}
+
+function extraerNumeroYFecha(texto){
+  const numMatch = texto.match(/N[°ºo]\s*([A-Z]{1,6}\d{1,6}\s*-\s*\d{1,12})/i);
+  const fechaMatch = texto.match(/Fecha\s*y\s*hora\s*de\s*emisi[oó]n\s*:\s*(\d{2}\/\d{2}\/\d{4})/i);
+
+  return {
+    numero: numMatch ? numMatch[1].trim() : "",
+    fecha: fechaMatch ? fechaMatch[1].trim() : ""
+  };
+}
+
+async function pdfToText(buffer){
+  const pdf = await pdfjsLib.getDocument({data:buffer}).promise;
+  let full="";
+  for(let i=1;i<=pdf.numPages;i++){
+    const page=await pdf.getPage(i);
+    const content=await page.getTextContent();
+    full+=content.items.map(it=>it.str).join(" ")+"\n";
   }
+  return full;
+}
 
-  function showRow(numero, fecha) {
-    tbody.innerHTML = "";
-    const tr = document.createElement("tr");
-    const td1 = document.createElement("td");
-    const td2 = document.createElement("td");
-    td1.textContent = numero || "(no encontrado)";
-    td2.textContent = fecha || "(no encontrada)";
-    tr.appendChild(td1); tr.appendChild(td2);
-    tbody.appendChild(tr);
-  }
+async function procesarPDF(buffer){
+  setStatus("Extrayendo texto...");
+  const texto = await pdfToText(buffer);
+  pdftext.textContent = texto;
+  const {numero, fecha} = extraerNumeroYFecha(texto);
+  showResult(numero, fecha);
+  setStatus("Listo.", "ok");
+}
 
-  function clearAll() {
-    setStatus("Listo.");
-    qrrawEl.textContent = "";
-    finalurlEl.textContent = "";
-    pdftextEl.textContent = "";
-    showRow("", "");
-    processing = false;
-    lastQrText = "";
-  }
+btnStart.addEventListener("click", async ()=>{
+  try{
+    codeReader = new ZXingBrowser.BrowserQRCodeReader();
+    btnStart.disabled=true;
+    btnStop.disabled=false;
 
-  async function pdfToText(arrayBuffer) {
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let full = "";
-    for (let p = 1; p <= pdf.numPages; p++) {
-      const page = await pdf.getPage(p);
-      const content = await page.getTextContent();
-      full += content.items.map(it => it.str).join(" ") + "\n";
-    }
-    return full.replace(/\s+/g, " ").trim();
-  }
+    const constraints = {
+      video:{facingMode:{ideal:"environment"}},
+      audio:false
+    };
 
-  // Regex ajustadas al patrón observado en tu guía:
-  // - "N° EG07 - 00000075"
-  // - "Fecha y hora de emisión : 20/08/2025 05:46 PM"
-  function extraerNumeroYFecha(texto) {
-    const t = texto;
+    controls = await codeReader.decodeFromConstraints(
+      constraints,
+      video,
+      async (result)=>{
+        if(result && !scanning){
+          scanning=true;
+          const url=result.getText();
+          qrtext.textContent="QR: "+url;
 
-    // Número (soporta "N°", "Nº", "No")
-    const mNum = t.match(/N[°ºo]\s*([A-Z]{1,6}\d{1,6}\s*-\s*\d{1,12})/i);
-
-    // Fecha de emisión (toma solo dd/mm/yyyy)
-    const mFecha = t.match(/Fecha\s*y\s*hora\s*de\s*emisi[oó]n\s*:\s*(\d{2}\/\d{2}\/\d{4})/i);
-
-    const numero = mNum ? mNum[1].replace(/\s+/g, " ").trim() : "";
-    const fecha  = mFecha ? mFecha[1].trim() : "";
-
-    return { numero, fecha };
-  }
-
-  function looksLikeUrl(s) {
-    return /^https?:\/\//i.test(s);
-  }
-
-  async function processPdfBuffer(buf, originLabel="") {
-    setStatus("Extrayendo texto del PDF…", "");
-    const text = await pdfToText(buf);
-    pdftextEl.textContent = text.slice(0, 25000);
-
-    const { numero, fecha } = extraerNumeroYFecha(text);
-    showRow(numero, fecha);
-
-    if (numero || fecha) {
-      setStatus(`Listo ✅ ${originLabel}`.trim(), "ok");
-    } else {
-      setStatus("No pude encontrar N° de guía o fecha con las reglas actuales. (Se ajusta regex con tu PDF real)", "warn");
-    }
-  }
-
-  async function processQrText(qrText) {
-    if (!qrText) return;
-    if (processing) return;
-    if (qrText === lastQrText) return;
-
-    lastQrText = qrText;
-    processing = true;
-
-    qrrawEl.textContent = "QR: " + qrText;
-    finalurlEl.textContent = "";
-
-    if (!looksLikeUrl(qrText)) {
-      setStatus("El QR no es URL. Si el QR contiene un código, aquí se tendría que construir la URL del PDF.", "warn");
-      processing = false;
-      return;
-    }
-
-    setStatus("Descargando PDF desde la URL del QR…", "");
-
-    try {
-      const resp = await fetch(qrText, { redirect: "follow" });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-
-      const urlFinal = resp.url || qrText;
-      finalurlEl.textContent = "URL final: " + urlFinal;
-
-      const buf = await resp.arrayBuffer();
-
-      // Intentar parsear como PDF (si no es PDF, pdf.js fallará)
-      await processPdfBuffer(buf, "(desde QR)");
-
-    } catch (e) {
-      console.error(e);
-      setStatus(
-        "No pude descargar/leer el PDF por navegador. Probable bloqueo CORS o la URL devuelve una página intermedia. " +
-        "Usa el Método 2: descarga el PDF y súbelo.",
-        "err"
-      );
-    } finally {
-      processing = false;
-    }
-  }
-
-  // --- QR Camera controls ---
-  btnStart.addEventListener("click", async () => {
-    try {
-      codeReader = new ZXingBrowser.BrowserQRCodeReader();
-      btnStart.disabled = true;
-      btnStop.disabled = false;
-
-      const devices = await ZXingBrowser.BrowserQRCodeReader.listVideoInputDevices();
-      const backCam = devices.find(d => /back|rear|environment/i.test(d.label)) || devices[0];
-
-      controls = await codeReader.decodeFromVideoDevice(
-        backCam?.deviceId,
-        videoEl,
-        (result) => {
-          if (result) {
-            const text = result.getText();
-            // Escanea una sola vez y procesa
-            processQrText(text);
+          try{
+            const resp=await fetch(url);
+            const buf=await resp.arrayBuffer();
+            finalurl.textContent="URL: "+resp.url;
+            await procesarPDF(buf);
+          }catch(e){
+            setStatus("No se pudo descargar PDF (posible CORS). Usa método manual.", "err");
           }
+          scanning=false;
         }
-      );
+      }
+    );
 
-      setStatus("Escaneando… apunta al QR.", "");
-    } catch (e) {
-      console.error(e);
-      setStatus("No se pudo iniciar cámara. Abre esta página en HTTPS y acepta permisos.", "err");
-      btnStart.disabled = false;
-      btnStop.disabled = true;
-    }
-  });
+    setStatus("Escaneando QR...");
+  }catch(e){
+    setStatus("No se pudo iniciar cámara. Abre en Chrome/Safari y habilita permisos.", "err");
+    btnStart.disabled=false;
+    btnStop.disabled=true;
+  }
+});
 
-  btnStop.addEventListener("click", () => {
-    if (controls) controls.stop();
-    btnStart.disabled = false;
-    btnStop.disabled = true;
-    setStatus("Cámara detenida.", "");
-  });
+btnStop.addEventListener("click", ()=>{
+  if(controls) controls.stop();
+  btnStart.disabled=false;
+  btnStop.disabled=true;
+  setStatus("Cámara detenida.");
+});
 
-  btnClear.addEventListener("click", () => {
-    clearAll();
-  });
+btnClear.addEventListener("click", clearAll);
 
-  // --- Método 2: subir PDF ---
-  pdfFile.addEventListener("change", async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+pdfInput.addEventListener("change", async (e)=>{
+  const file=e.target.files[0];
+  if(!file) return;
+  const buf=await file.arrayBuffer();
+  await procesarPDF(buf);
+});
 
-    clearAll();
-    setStatus("Leyendo PDF seleccionado…", "");
-    try {
-      const buf = await file.arrayBuffer();
-      await processPdfBuffer(buf, "(archivo)");
-    } catch (err) {
-      console.error(err);
-      setStatus("No pude leer ese PDF.", "err");
-    }
-  });
-
-  // Init
-  clearAll();
 </script>
 </body>
 </html>
