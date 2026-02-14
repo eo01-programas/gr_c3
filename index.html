@@ -1,254 +1,1168 @@
 <!doctype html>
 <html lang="es">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>QR SUNAT → Nº Guía + Fecha</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Extractor de Guías (SUNAT / Físicas) — 100% Web</title>
 
-<style>
-body{
-  font-family: system-ui, Arial;
-  margin:20px;
-  background:#f4f6f9;
-}
-.container{
-  max-width:900px;
-  margin:auto;
-}
-h1{
-  font-size:20px;
-}
-.card{
-  background:white;
-  padding:15px;
-  border-radius:12px;
-  box-shadow:0 2px 8px rgba(0,0,0,0.08);
-  margin-bottom:15px;
-}
-video{
-  width:100%;
-  border-radius:12px;
-  background:black;
-}
-button{
-  padding:10px 14px;
-  border-radius:8px;
-  border:1px solid #ddd;
-  font-weight:600;
-  cursor:pointer;
-}
-button:disabled{
-  opacity:0.6;
-  cursor:not-allowed;
-}
-table{
-  width:100%;
-  border-collapse:collapse;
-  margin-top:10px;
-}
-th,td{
-  border:1px solid #e5e7eb;
-  padding:10px;
-  text-align:left;
-}
-th{
-  background:#f1f5f9;
-}
-.status{
-  font-size:13px;
-  margin-top:8px;
-}
-.ok{color:green;}
-.err{color:red;}
-.warn{color:#b45309;}
-pre{
-  background:#111827;
-  color:#e5e7eb;
-  padding:10px;
-  border-radius:10px;
-  overflow:auto;
-}
-</style>
+  <!-- Librerías (CDN) -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.10/minified/html5-qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card:#0f1a33;
+      --card2:#0c162d;
+      --text:#e8eefc;
+      --muted:#a8b3d6;
+      --line:#23365f;
+      --accent:#5eead4;
+      --accent2:#60a5fa;
+      --danger:#fb7185;
+      --ok:#34d399;
+      --warn:#fbbf24;
+      --shadow: 0 10px 35px rgba(0,0,0,.35);
+      --radius: 16px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background: radial-gradient(1200px 600px at 20% -10%, rgba(96,165,250,.22), transparent 60%),
+                  radial-gradient(1200px 600px at 90% 0%, rgba(94,234,212,.18), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+      font-family:var(--sans);
+    }
+    header{
+      position:sticky; top:0;
+      backdrop-filter: blur(10px);
+      background: rgba(11,18,32,.7);
+      border-bottom: 1px solid rgba(35,54,95,.7);
+      z-index: 10;
+    }
+    .wrap{max-width:1100px;margin:0 auto;padding:18px 16px}
+    .title{
+      display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;
+    }
+    h1{
+      margin:0;
+      font-size: 18px;
+      letter-spacing:.2px;
+      display:flex; gap:10px; align-items:center;
+    }
+    .badge{
+      font-size:12px;
+      padding:4px 10px;
+      border:1px solid rgba(94,234,212,.45);
+      color:var(--accent);
+      border-radius:999px;
+      background: rgba(94,234,212,.08);
+    }
+    .sub{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.35;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap:14px;
+      margin-top:14px;
+    }
+    @media (max-width: 980px){
+      .grid{grid-template-columns: 1fr}
+    }
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.03), transparent 40%),
+                  var(--card);
+      border: 1px solid rgba(35,54,95,.8);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .card .hd{
+      padding:14px 14px 10px 14px;
+      border-bottom: 1px solid rgba(35,54,95,.8);
+      background: rgba(255,255,255,.02);
+      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    }
+    .card .hd strong{font-size:14px}
+    .card .bd{padding:14px}
+    .tabs{
+      display:flex; gap:10px; flex-wrap:wrap;
+    }
+    .tabbtn{
+      cursor:pointer;
+      user-select:none;
+      border: 1px solid rgba(35,54,95,.9);
+      background: rgba(12,22,45,.85);
+      color: var(--text);
+      padding:10px 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      display:flex; align-items:center; gap:10px;
+      transition:.15s ease;
+    }
+    .tabbtn.active{
+      border-color: rgba(94,234,212,.55);
+      background: rgba(94,234,212,.10);
+      color: var(--accent);
+    }
+    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    .btn{
+      cursor:pointer;
+      border:1px solid rgba(35,54,95,.9);
+      background: rgba(12,22,45,.75);
+      color: var(--text);
+      padding:10px 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      transition:.15s ease;
+      display:inline-flex; align-items:center; gap:8px;
+    }
+    .btn:hover{transform: translateY(-1px); border-color: rgba(96,165,250,.6)}
+    .btn.primary{
+      border-color: rgba(94,234,212,.55);
+      background: rgba(94,234,212,.12);
+      color: var(--accent);
+    }
+    .btn.blue{
+      border-color: rgba(96,165,250,.55);
+      background: rgba(96,165,250,.12);
+      color: var(--accent2);
+    }
+    .btn.danger{
+      border-color: rgba(251,113,133,.6);
+      background: rgba(251,113,133,.12);
+      color: var(--danger);
+    }
+    .btn.ok{
+      border-color: rgba(52,211,153,.55);
+      background: rgba(52,211,153,.12);
+      color: var(--ok);
+    }
+
+    input[type="file"]{
+      width:100%;
+      padding:12px;
+      border-radius: 12px;
+      border:1px dashed rgba(35,54,95,.95);
+      background: rgba(12,22,45,.55);
+      color: var(--muted);
+    }
+    .hint{
+      margin-top:8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height:1.35;
+    }
+    .mono{
+      font-family: var(--mono);
+      font-size: 12px;
+      color: rgba(232,238,252,.9);
+      background: rgba(0,0,0,.18);
+      border: 1px solid rgba(35,54,95,.7);
+      border-radius: 12px;
+      padding:10px;
+      overflow:auto;
+      max-height: 180px;
+    }
+    .sep{height:1px;background:rgba(35,54,95,.7);margin:14px 0}
+    .small{font-size:12px;color:var(--muted)}
+
+    /* Tabla resultados */
+    table{
+      width:100%;
+      border-collapse: collapse;
+      overflow:hidden;
+      border-radius: 14px;
+      border:1px solid rgba(35,54,95,.8);
+      background: rgba(12,22,45,.55);
+    }
+    th, td{
+      padding:10px 10px;
+      border-bottom: 1px solid rgba(35,54,95,.6);
+      vertical-align: top;
+    }
+    th{
+      text-align:left;
+      font-size: 12px;
+      color: rgba(232,238,252,.9);
+      background: rgba(255,255,255,.03);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    td input{
+      width:100%;
+      padding:9px 10px;
+      border-radius: 10px;
+      border:1px solid rgba(35,54,95,.8);
+      background: rgba(0,0,0,.16);
+      color: var(--text);
+      font-size: 13px;
+      outline:none;
+    }
+    td input:focus{
+      border-color: rgba(94,234,212,.5);
+      box-shadow: 0 0 0 3px rgba(94,234,212,.12);
+    }
+    .actions{
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-end
+    }
+
+    /* QR box */
+    #qr-reader{
+      width:100%;
+      max-width: 520px;
+      border-radius: 14px;
+      overflow:hidden;
+      border:1px solid rgba(35,54,95,.8);
+      background: rgba(0,0,0,.10);
+    }
+    .qrrow{
+      display:flex;
+      gap:14px;
+      flex-wrap:wrap;
+      align-items:flex-start;
+    }
+
+    /* Imagen preview */
+    .imgbox{
+      border:1px solid rgba(35,54,95,.8);
+      background: rgba(0,0,0,.10);
+      border-radius: 14px;
+      padding:10px;
+      overflow:hidden;
+    }
+    .imgbox canvas{
+      width:100%;
+      height:auto;
+      border-radius: 10px;
+      display:block;
+      background: #0a0f1c;
+    }
+
+    /* Overlay */
+    .overlay{
+      position:fixed; inset:0;
+      display:none;
+      align-items:center; justify-content:center;
+      background: rgba(0,0,0,.55);
+      z-index:999;
+      padding: 20px;
+    }
+    .overlay.show{display:flex}
+    .modal{
+      width:min(520px, 100%);
+      border-radius: 16px;
+      border:1px solid rgba(35,54,95,.9);
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(12,22,45,.92));
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+    .spin{
+      width: 18px; height: 18px;
+      border-radius: 999px;
+      border: 3px solid rgba(96,165,250,.20);
+      border-top-color: rgba(94,234,212,.85);
+      animation: rot 1s linear infinite;
+      display:inline-block;
+      vertical-align:middle;
+      margin-right: 10px;
+    }
+    @keyframes rot{to{transform:rotate(360deg)}}
+    .prog{
+      margin-top:10px;
+      width:100%;
+      height:10px;
+      border-radius:999px;
+      background: rgba(255,255,255,.07);
+      border:1px solid rgba(35,54,95,.7);
+      overflow:hidden;
+    }
+    .prog > div{
+      height:100%;
+      width:0%;
+      background: linear-gradient(90deg, rgba(96,165,250,.7), rgba(94,234,212,.7));
+      transition: width .12s ease;
+    }
+  </style>
 </head>
 
 <body>
-<div class="container">
-
-<h1>QR SUNAT → PDF → Nº Guía + Fecha</h1>
-
-<div class="card">
-  <button id="btnStart">Iniciar Cámara</button>
-  <button id="btnStop" disabled>Detener</button>
-  <button id="btnClear">Limpiar</button>
-
-  <div style="margin-top:10px;">
-    <video id="video" muted playsinline></video>
+<header>
+  <div class="wrap">
+    <div class="title">
+      <h1>Extractor de Guías (SUNAT / Físicas) <span class="badge">100% Web</span></h1>
+      <div class="actions">
+        <button class="btn blue" id="btnDownloadCsv">⬇️ Descargar CSV</button>
+        <button class="btn danger" id="btnClearAll">🧹 Limpiar tabla</button>
+      </div>
+    </div>
+    <div class="sub">
+      1) <b>Guía electrónica</b>: escanea QR → abre el link → descarga el PDF → súbelo aquí para extraer.<br/>
+      2) <b>Guía física</b>: sube foto/escaneo (o PDF escaneado) → OCR → extraer y editar → agregar a tabla.
+    </div>
   </div>
+</header>
 
-  <div id="status" class="status">Listo.</div>
-  <div id="qrtext" class="status"></div>
-  <div id="finalurl" class="status"></div>
+<div class="wrap">
+  <div class="grid">
+    <!-- PANEL IZQUIERDO: MODOS -->
+    <section class="card">
+      <div class="hd">
+        <strong>Opciones</strong>
+        <div class="tabs">
+          <div class="tabbtn active" id="tabElec">🧾 Guía electrónica (QR / PDF)</div>
+          <div class="tabbtn" id="tabFis">📷 Guía física (foto / escaneo)</div>
+        </div>
+      </div>
+
+      <!-- ELECTRÓNICA -->
+      <div class="bd" id="panelElec">
+        <div class="qrrow">
+          <div style="flex:1 1 520px;">
+            <div class="row" style="justify-content:space-between;margin-bottom:10px;">
+              <div class="small">Escaneo QR (requiere HTTPS o localhost)</div>
+              <div class="row">
+                <button class="btn primary" id="btnStartQr">▶️ Iniciar QR</button>
+                <button class="btn" id="btnStopQr">⏹️ Detener</button>
+              </div>
+            </div>
+            <div id="qr-reader"></div>
+            <div class="hint">
+              Si te sale “no se pudo iniciar cámara”: publica en <b>HTTPS</b> (ej. GitHub Pages) y acepta permisos.
+            </div>
+          </div>
+
+          <div style="flex:1 1 300px;">
+            <div class="small">Resultado del QR</div>
+            <div class="mono" id="qrResult">(Aún no escaneado)</div>
+            <div class="row" style="margin-top:10px;">
+              <button class="btn blue" id="btnOpenQr" disabled>🔗 Abrir link</button>
+              <button class="btn" id="btnCopyQr" disabled>📋 Copiar</button>
+            </div>
+            <div class="hint">
+              Recomendación: abre el link, descarga el PDF de SUNAT y luego súbelo abajo.
+            </div>
+          </div>
+        </div>
+
+        <div class="sep"></div>
+
+        <strong style="font-size:13px;">Subir PDF (Guía electrónica descargada)</strong>
+        <div class="hint">La app leerá texto del PDF (si es PDF “real”). Si el PDF es escaneado como imagen, usa OCR (opción guía física).</div>
+        <input type="file" id="filePdfElec" accept="application/pdf" />
+
+        <div class="sep"></div>
+        <strong style="font-size:13px;">Vista previa (editable)</strong>
+        <div class="hint">Revisa/corrige los 4 campos y agrega a la tabla.</div>
+        <div class="row" style="margin-top:10px;">
+          <button class="btn ok" id="btnAddPreviewElec" disabled>➕ Agregar a tabla</button>
+          <button class="btn" id="btnResetPreviewElec" disabled>↩️ Reset</button>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div class="small">Razón social</div>
+          <input id="prevElecRS" placeholder="(extraído o escribe)" style="width:100%;margin-top:6px;padding:10px;border-radius:12px;border:1px solid rgba(35,54,95,.8);background:rgba(0,0,0,.16);color:var(--text);" />
+          <div class="row" style="margin-top:10px;">
+            <div style="flex:1;">
+              <div class="small">Fecha</div>
+              <input id="prevElecFecha" placeholder="dd/mm/aaaa" style="width:100%;margin-top:6px;padding:10px;border-radius:12px;border:1px solid rgba(35,54,95,.8);background:rgba(0,0,0,.16);color:var(--text);" />
+            </div>
+            <div style="flex:1;">
+              <div class="small">Cantidad</div>
+              <input id="prevElecCant" placeholder="Ej: 135" style="width:100%;margin-top:6px;padding:10px;border-radius:12px;border:1px solid rgba(35,54,95,.8);background:rgba(0,0,0,.16);color:var(--text);" />
+            </div>
+          </div>
+          <div class="small" style="margin-top:10px;">Descripción</div>
+          <input id="prevElecDesc" placeholder="Descripción del bien" style="width:100%;margin-top:6px;padding:10px;border-radius:12px;border:1px solid rgba(35,54,95,.8);background:rgba(0,0,0,.16);color:var(--text);" />
+          <div class="hint" id="prevElecMeta" style="margin-top:10px;"></div>
+        </div>
+
+        <div class="sep"></div>
+        <details>
+          <summary class="small" style="cursor:pointer;">Ver texto extraído (debug)</summary>
+          <div class="mono" id="debugElec"></div>
+        </details>
+      </div>
+
+      <!-- FÍSICA -->
+      <div class="bd" id="panelFis" style="display:none;">
+        <strong style="font-size:13px;">Subir foto / escaneo (imagen o PDF escaneado)</strong>
+        <div class="hint">En celular: usa “Tomar foto”. Recomendado: buena luz, enfoque y contraste.</div>
+
+        <input type="file" id="fileFis" accept="image/*,application/pdf" capture="environment" />
+
+        <div class="row" style="margin-top:12px;">
+          <button class="btn" id="btnRotateL" disabled>⟲ Rotar</button>
+          <button class="btn" id="btnRotateR" disabled>⟳ Rotar</button>
+          <button class="btn primary" id="btnRunOcr" disabled>🧠 OCR & Extraer</button>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="imgbox">
+          <canvas id="imgCanvas" width="900" height="600"></canvas>
+          <div class="hint">Si la guía sale de costado (como tu foto), usa “Rotar” antes de OCR.</div>
+        </div>
+
+        <div class="sep"></div>
+
+        <strong style="font-size:13px;">Vista previa (editable)</strong>
+        <div class="hint">OCR puede fallar con letra a mano. Corrige y agrega.</div>
+        <div class="row" style="margin-top:10px;">
+          <button class="btn ok" id="btnAddPreviewFis" disabled>➕ Agregar a tabla</button>
+          <button class="btn" id="btnResetPreviewFis" disabled>↩️ Reset</button>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div class="small">Razón social</div>
+          <input id="prevFisRS" placeholder="(extraído o escribe)" style="width:100%;margin-top:6px;padding:10px;border-radius:12px;border:1px solid rgba(35,54,95,.8);background:rgba(0,0,0,.16);color:var(--text);" />
+          <div class="row" style="margin-top:10px;">
+            <div style="flex:1;">
+              <div class="small">Fecha</div>
+              <input id="prevFisFecha" placeholder="dd/mm/aaaa" style="width:100%;margin-top:6px;padding:10px;border-radius:12px;border:1px solid rgba(35,54,95,.8);background:rgba(0,0,0,.16);color:var(--text);" />
+            </div>
+            <div style="flex:1;">
+              <div class="small">Cantidad</div>
+              <input id="prevFisCant" placeholder="Ej: 45" style="width:100%;margin-top:6px;padding:10px;border-radius:12px;border:1px solid rgba(35,54,95,.8);background:rgba(0,0,0,.16);color:var(--text);" />
+            </div>
+          </div>
+          <div class="small" style="margin-top:10px;">Descripción</div>
+          <input id="prevFisDesc" placeholder="Descripción" style="width:100%;margin-top:6px;padding:10px;border-radius:12px;border:1px solid rgba(35,54,95,.8);background:rgba(0,0,0,.16);color:var(--text);" />
+          <div class="hint" id="prevFisMeta" style="margin-top:10px;"></div>
+        </div>
+
+        <div class="sep"></div>
+        <details>
+          <summary class="small" style="cursor:pointer;">Ver texto OCR (debug)</summary>
+          <div class="mono" id="debugFis"></div>
+        </details>
+      </div>
+    </section>
+
+    <!-- PANEL DERECHO: RESULTADOS -->
+    <section class="card">
+      <div class="hd">
+        <strong>Resultados</strong>
+        <div class="small" id="countRows">0 registros</div>
+      </div>
+      <div class="bd">
+        <div class="hint" style="margin-bottom:10px;">
+          Puedes editar directamente en la tabla y luego descargar a CSV.
+        </div>
+        <div style="max-height:520px; overflow:auto; border-radius:14px;">
+          <table id="tbl">
+            <thead>
+              <tr>
+                <th style="min-width:190px;">RAZÓN SOCIAL</th>
+                <th style="min-width:120px;">FECHA</th>
+                <th style="min-width:110px;">CANTIDAD</th>
+                <th style="min-width:260px;">DESCRIPCIÓN</th>
+                <th style="min-width:120px;">ORIGEN</th>
+                <th style="min-width:90px;">ACCIONES</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="sep"></div>
+        <div class="small">
+          Privacidad: todo se procesa en tu navegador (no se sube a ningún servidor).
+        </div>
+      </div>
+    </section>
+  </div>
 </div>
 
-<div class="card">
-  <b>Resultado</b>
-  <table>
-    <thead>
-      <tr>
-        <th>N° Guía</th>
-        <th>Fecha</th>
-      </tr>
-    </thead>
-    <tbody id="result">
-      <tr><td colspan="2">—</td></tr>
-    </tbody>
-  </table>
+<!-- Overlay -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="spin"></span>
+      <div>
+        <div style="font-weight:700" id="ovTitle">Procesando…</div>
+        <div class="small" id="ovMsg">Un momento</div>
+      </div>
+    </div>
+    <div class="prog"><div id="ovBar"></div></div>
+    <div class="small" id="ovPct" style="margin-top:8px;">0%</div>
+  </div>
 </div>
 
-<div class="card">
-  <b>Alternativa (si CORS bloquea)</b>
-  <input type="file" id="pdfInput" accept="application/pdf">
-</div>
+<script>
+  // =========================
+  // PDF.js worker
+  // =========================
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.js";
 
-<div class="card">
-  <details>
-    <summary>Texto extraído del PDF</summary>
-    <pre id="pdftext"></pre>
-  </details>
-</div>
-
-</div>
-
-<script src="https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js"></script>
-<script type="module">
-
-import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.min.mjs";
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-"https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.worker.min.mjs";
-
-const video = document.getElementById("video");
-const status = document.getElementById("status");
-const qrtext = document.getElementById("qrtext");
-const finalurl = document.getElementById("finalurl");
-const resultTable = document.getElementById("result");
-const pdftext = document.getElementById("pdftext");
-
-const btnStart = document.getElementById("btnStart");
-const btnStop = document.getElementById("btnStop");
-const btnClear = document.getElementById("btnClear");
-const pdfInput = document.getElementById("pdfInput");
-
-let codeReader;
-let controls;
-let scanning = false;
-
-function setStatus(msg, type=""){
-  status.className="status "+type;
-  status.textContent=msg;
-}
-
-function showResult(numero, fecha){
-  resultTable.innerHTML="";
-  const tr=document.createElement("tr");
-  tr.innerHTML=`<td>${numero || "(no encontrado)"}</td><td>${fecha || "(no encontrada)"}</td>`;
-  resultTable.appendChild(tr);
-}
-
-function clearAll(){
-  showResult("", "");
-  qrtext.textContent="";
-  finalurl.textContent="";
-  pdftext.textContent="";
-  setStatus("Listo.");
-}
-
-function extraerNumeroYFecha(texto){
-  const numMatch = texto.match(/N[°ºo]\s*([A-Z]{1,6}\d{1,6}\s*-\s*\d{1,12})/i);
-  const fechaMatch = texto.match(/Fecha\s*y\s*hora\s*de\s*emisi[oó]n\s*:\s*(\d{2}\/\d{2}\/\d{4})/i);
-
-  return {
-    numero: numMatch ? numMatch[1].trim() : "",
-    fecha: fechaMatch ? fechaMatch[1].trim() : ""
+  // =========================
+  // Estado
+  // =========================
+  const state = {
+    rows: [],
+    qr: { scanner: null, lastText: "" },
+    fis: { file: null, rotation: 0, canvasReady: false },
+    previewElec: null,
+    previewFis: null
   };
-}
 
-async function pdfToText(buffer){
-  const pdf = await pdfjsLib.getDocument({data:buffer}).promise;
-  let full="";
-  for(let i=1;i<=pdf.numPages;i++){
-    const page=await pdf.getPage(i);
-    const content=await page.getTextContent();
-    full+=content.items.map(it=>it.str).join(" ")+"\n";
+  // =========================
+  // Helpers UI
+  // =========================
+  const $ = (id) => document.getElementById(id);
+
+  function setOverlay(show, title="Procesando…", msg="Un momento", pct=null){
+    const ov = $("overlay");
+    if(!show){
+      ov.classList.remove("show");
+      return;
+    }
+    $("ovTitle").textContent = title;
+    $("ovMsg").textContent = msg;
+    if (pct === null) pct = 0;
+    $("ovBar").style.width = Math.max(0, Math.min(100, pct)) + "%";
+    $("ovPct").textContent = Math.round(pct) + "%";
+    ov.classList.add("show");
   }
-  return full;
-}
 
-async function procesarPDF(buffer){
-  setStatus("Extrayendo texto...");
-  const texto = await pdfToText(buffer);
-  pdftext.textContent = texto;
-  const {numero, fecha} = extraerNumeroYFecha(texto);
-  showResult(numero, fecha);
-  setStatus("Listo.", "ok");
-}
+  function setOverlayPct(pct, msg=null){
+    $("ovBar").style.width = Math.max(0, Math.min(100, pct)) + "%";
+    $("ovPct").textContent = Math.round(pct) + "%";
+    if(msg!==null) $("ovMsg").textContent = msg;
+  }
 
-btnStart.addEventListener("click", async ()=>{
-  try{
-    codeReader = new ZXingBrowser.BrowserQRCodeReader();
-    btnStart.disabled=true;
-    btnStop.disabled=false;
+  function safeText(s){ return (s ?? "").toString().trim(); }
 
-    const constraints = {
-      video:{facingMode:{ideal:"environment"}},
-      audio:false
+  function normalizeText(t){
+    return safeText(t)
+      .replace(/\u00A0/g, " ")
+      .replace(/[ \t]+/g, " ")
+      .replace(/\r/g, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+
+  function fmtDateLike(d){
+    // Acepta dd/mm/aaaa o dd-mm-aaaa o dd/mm/aa
+    const s = safeText(d);
+    const m = s.match(/(\d{2})[\/\-](\d{2})[\/\-](\d{2,4})/);
+    if(!m) return s;
+    let yy = m[3];
+    if(yy.length === 2) yy = "20" + yy;
+    return `${m[1]}/${m[2]}/${yy}`;
+  }
+
+  // =========================
+  // Tabs
+  // =========================
+  function activateTab(which){
+    const elec = (which==="elec");
+    $("tabElec").classList.toggle("active", elec);
+    $("tabFis").classList.toggle("active", !elec);
+    $("panelElec").style.display = elec ? "" : "none";
+    $("panelFis").style.display = elec ? "none" : "";
+  }
+  $("tabElec").addEventListener("click", ()=>activateTab("elec"));
+  $("tabFis").addEventListener("click", ()=>activateTab("fis"));
+
+  // =========================
+  // Tabla resultados
+  // =========================
+  function renderTable(){
+    const tb = $("tbody");
+    tb.innerHTML = "";
+    state.rows.forEach((r, idx)=>{
+      const tr = document.createElement("tr");
+
+      const tdRS = document.createElement("td");
+      const inRS = document.createElement("input");
+      inRS.value = r.razon_social;
+      inRS.addEventListener("input", ()=> r.razon_social = inRS.value);
+      tdRS.appendChild(inRS);
+
+      const tdF = document.createElement("td");
+      const inF = document.createElement("input");
+      inF.value = r.fecha;
+      inF.addEventListener("input", ()=> r.fecha = inF.value);
+      tdF.appendChild(inF);
+
+      const tdC = document.createElement("td");
+      const inC = document.createElement("input");
+      inC.value = r.cantidad;
+      inC.addEventListener("input", ()=> r.cantidad = inC.value);
+      tdC.appendChild(inC);
+
+      const tdD = document.createElement("td");
+      const inD = document.createElement("input");
+      inD.value = r.descripcion;
+      inD.addEventListener("input", ()=> r.descripcion = inD.value);
+      tdD.appendChild(inD);
+
+      const tdO = document.createElement("td");
+      tdO.textContent = r.origen;
+
+      const tdA = document.createElement("td");
+      const bDel = document.createElement("button");
+      bDel.className = "btn danger";
+      bDel.style.padding = "8px 10px";
+      bDel.textContent = "🗑️";
+      bDel.title = "Eliminar";
+      bDel.addEventListener("click", ()=>{
+        state.rows.splice(idx,1);
+        renderTable();
+      });
+      tdA.appendChild(bDel);
+
+      tr.appendChild(tdRS);
+      tr.appendChild(tdF);
+      tr.appendChild(tdC);
+      tr.appendChild(tdD);
+      tr.appendChild(tdO);
+      tr.appendChild(tdA);
+      tb.appendChild(tr);
+    });
+    $("countRows").textContent = `${state.rows.length} registros`;
+  }
+
+  function addRowFromPreview(p, origen){
+    const row = {
+      razon_social: safeText(p.razon_social),
+      fecha: safeText(p.fecha),
+      cantidad: safeText(p.cantidad),
+      descripcion: safeText(p.descripcion),
+      origen
     };
+    state.rows.unshift(row);
+    renderTable();
+  }
 
-    controls = await codeReader.decodeFromConstraints(
-      constraints,
-      video,
-      async (result)=>{
-        if(result && !scanning){
-          scanning=true;
-          const url=result.getText();
-          qrtext.textContent="QR: "+url;
+  $("btnClearAll").addEventListener("click", ()=>{
+    if(confirm("¿Limpiar toda la tabla?")){
+      state.rows = [];
+      renderTable();
+    }
+  });
 
-          try{
-            const resp=await fetch(url);
-            const buf=await resp.arrayBuffer();
-            finalurl.textContent="URL: "+resp.url;
-            await procesarPDF(buf);
-          }catch(e){
-            setStatus("No se pudo descargar PDF (posible CORS). Usa método manual.", "err");
-          }
-          scanning=false;
+  $("btnDownloadCsv").addEventListener("click", ()=>{
+    const headers = ["RAZON_SOCIAL","FECHA","CANTIDAD","DESCRIPCION","ORIGEN"];
+    const esc = (v)=> `"${String(v ?? "").replaceAll('"','""')}"`;
+    const lines = [headers.join(",")];
+    state.rows.forEach(r=>{
+      lines.push([
+        esc(r.razon_social),
+        esc(r.fecha),
+        esc(r.cantidad),
+        esc(r.descripcion),
+        esc(r.origen)
+      ].join(","));
+    });
+    const blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `guias_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  // =========================
+  // QR
+  // =========================
+  function setQrButtons(has){
+    $("btnOpenQr").disabled = !has;
+    $("btnCopyQr").disabled = !has;
+  }
+
+  $("btnStartQr").addEventListener("click", async ()=>{
+    try{
+      if(state.qr.scanner){
+        await state.qr.scanner.stop().catch(()=>{});
+        state.qr.scanner.clear();
+        state.qr.scanner = null;
+      }
+      state.qr.lastText = "";
+      $("qrResult").textContent = "(Escaneando…)";
+      setQrButtons(false);
+
+      const scanner = new Html5Qrcode("qr-reader");
+      state.qr.scanner = scanner;
+
+      await scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 240, height: 240 } },
+        (decodedText)=>{
+          state.qr.lastText = decodedText;
+          $("qrResult").textContent = decodedText;
+          setQrButtons(true);
+          // auto-stop para no duplicar
+          scanner.stop().catch(()=>{});
+        },
+        ()=>{}
+      );
+    }catch(err){
+      alert("No se pudo iniciar la cámara/QR. Asegúrate de estar en HTTPS (o localhost) y dar permisos.\n\nDetalle: " + err);
+    }
+  });
+
+  $("btnStopQr").addEventListener("click", async ()=>{
+    try{
+      if(state.qr.scanner){
+        await state.qr.scanner.stop().catch(()=>{});
+        state.qr.scanner.clear();
+        state.qr.scanner = null;
+      }
+      $("qrResult").textContent = state.qr.lastText ? state.qr.lastText : "(Detenido)";
+    }catch(e){}
+  });
+
+  $("btnOpenQr").addEventListener("click", ()=>{
+    const u = state.qr.lastText;
+    if(!u) return;
+    window.open(u, "_blank", "noopener,noreferrer");
+  });
+
+  $("btnCopyQr").addEventListener("click", async ()=>{
+    const u = state.qr.lastText;
+    if(!u) return;
+    try{
+      await navigator.clipboard.writeText(u);
+      alert("Link copiado.");
+    }catch(e){
+      alert("No pude copiar automáticamente. Copia manualmente:\n\n" + u);
+    }
+  });
+
+  // =========================
+  // Extracción desde texto (RegEx + heurísticas)
+  // =========================
+  function extractFieldsFromText(rawText){
+    const text = normalizeText(rawText);
+    const up = text.toUpperCase();
+
+    // 1) Razón social (preferencia: DESTINATARIO si existe; si no, REMITENTE)
+    let rs = "";
+    // Destinatario: "Datos del Destinatario :INVERSIONES ... - REGISTRO ..."
+    let m = text.match(/Datos\s+del\s+Destinatario\s*:\s*([^\n\r\-]+?)(?:\s*-\s*REGISTRO|\s*-\s*RUC|\s*RUC|\n)/i);
+    if(m && safeText(m[1])) rs = safeText(m[1]);
+
+    // Remitente: suele estar antes, línea siguiente a "REMITENTE"
+    if(!rs){
+      m = text.match(/GU[IÍ]A\s+DE\s+REMISI[OÓ]N[\s\S]{0,120}?REMITENTE[\s\r\n]+([A-Z0-9ÁÉÍÓÚÑ&\.\- ]{5,})/i);
+      if(m && safeText(m[1])) rs = safeText(m[1]);
+    }
+
+    // 2) Fecha (preferencia: FECHA INICIO TRASLADO)
+    let fecha = "";
+    m = text.match(/Fecha\s+de\s+inicio\s+de\s+Traslado\s*:?\s*([\s\S]{0,50}?)(\d{2}[\/\-]\d{2}[\/\-]\d{2,4})/i);
+    if(m && safeText(m[2])) fecha = fmtDateLike(m[2]);
+
+    // fallback: fecha/hora emisión
+    if(!fecha){
+      m = text.match(/Fecha\s+y\s+hora\s+de\s+emisi[óo]n\s*:?\s*([\s\S]{0,30}?)(\d{2}[\/\-]\d{2}[\/\-]\d{2,4})/i);
+      if(m && safeText(m[2])) fecha = fmtDateLike(m[2]);
+    }
+
+    // fallback: primera fecha del documento
+    if(!fecha){
+      m = text.match(/(\d{2}[\/\-]\d{2}[\/\-]\d{2,4})/);
+      if(m && safeText(m[1])) fecha = fmtDateLike(m[1]);
+    }
+
+    // 3) Cantidad + Descripción (sección bienes)
+    let cantidad = "";
+    let descripcion = "";
+
+    // Intento: detectar líneas de ítems (comienzan con número y contienen texto)
+    const lines = text.split("\n").map(s=>s.trim()).filter(Boolean);
+
+    // Encontrar desde "Bienes por transportar" si existe
+    let startIdx = 0;
+    const idxBienes = lines.findIndex(l => /Bienes\s+por\s+transportar/i.test(l));
+    if(idxBienes >= 0) startIdx = idxBienes;
+
+    // Capturar posibles ítems (hasta 15 líneas después)
+    const itemLines = [];
+    for(let i=startIdx; i<Math.min(lines.length, startIdx+40); i++){
+      const l = lines[i];
+      // item típico: "1 NO - CINTA ... UNIDAD (NIU) 30.00"
+      if(/^\d+(?:[.,]\d+)?\s+/.test(l) && /[A-ZÁÉÍÓÚÑ]/i.test(l)){
+        itemLines.push(l);
+      }
+    }
+
+    function cleanDesc(s){
+      return safeText(s)
+        .replace(/\s+/g," ")
+        .replace(/\bUNIDAD(?:ES)?\b/ig,"")
+        .replace(/\bNIU\b/ig,"")
+        .replace(/\bKGM\b/ig,"")
+        .replace(/\bKG\b/ig,"")
+        .replace(/\bUND\b/ig,"")
+        .replace(/\s{2,}/g," ")
+        .trim();
+    }
+
+    if(itemLines.length){
+      // sumar cantidades si hay varias
+      let sum = 0;
+      const descs = [];
+      itemLines.slice(0,8).forEach(l=>{
+        const mm = l.match(/^(\d+(?:[.,]\d+)?)\s+(.+)$/);
+        if(!mm) return;
+        const q = parseFloat(mm[1].replace(",", "."));
+        if(!isNaN(q)) sum += q;
+        // cortar posible precio al final
+        let rest = mm[2];
+        rest = rest.replace(/\s+\d+(?:[.,]\d+)?\s*$/,""); // quita último número si parece monto
+        rest = rest.replace(/^NO\s*-\s*/i,"");
+        descs.push(cleanDesc(rest));
+      });
+      cantidad = String(sum || "").replace(".0","");
+
+      // si hay múltiples ítems, concatena
+      descripcion = descs.filter(Boolean).join(" | ");
+      if(itemLines.length > 8) descripcion += ` | (+${itemLines.length-8} ítems)`;
+    }
+
+    // fallback genérico por etiquetas
+    if(!cantidad){
+      m = text.match(/Cantidad\s*[:\-]?\s*(\d+(?:[.,]\d+)?)/i);
+      if(m) cantidad = safeText(m[1]);
+    }
+    if(!descripcion){
+      m = text.match(/Descripci[oó]n(?:\s+Detallada)?\s*[:\-]?\s*([^\n\r]+)/i);
+      if(m) descripcion = cleanDesc(m[1]);
+    }
+
+    // Extra: si descripción sigue vacía, tomar la mejor línea "larga" de ítems
+    if(!descripcion && itemLines.length){
+      descripcion = cleanDesc(itemLines[0].replace(/^\d+(?:[.,]\d+)?\s+/,""));
+    }
+
+    // heurística para físicos: buscar "SEÑORES" / "RAZON SOCIAL"
+    if(!rs){
+      m = text.match(/Señores\s*[:\-]?\s*([^\n\r]+)/i);
+      if(m) rs = safeText(m[1]);
+    }
+    if(!rs){
+      m = text.match(/Raz[oó]n\s+Social\s*[:\-]?\s*([^\n\r]+)/i);
+      if(m) rs = safeText(m[1]);
+    }
+
+    // si sigue sin rs: tomar la línea más “empresa-like”
+    if(!rs){
+      const cand = lines
+        .filter(l => l.length >= 8 && l.length <= 80)
+        .filter(l => !/GUIA|REMISI|RUC|FECHA|CANTIDAD|DESCRIP|SUNAT|ELECTR/i.test(l.toUpperCase()))
+        .sort((a,b)=>b.length-a.length)[0];
+      rs = safeText(cand);
+    }
+
+    return {
+      razon_social: rs,
+      fecha,
+      cantidad,
+      descripcion,
+      debug: text
+    };
+  }
+
+  // =========================
+  // PDF texto (electrónica)
+  // =========================
+  async function extractTextFromPdf(file){
+    const ab = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: ab}).promise;
+    let out = "";
+    for(let p=1; p<=pdf.numPages; p++){
+      setOverlayPct((p-1)/pdf.numPages*100, `Leyendo PDF (pág ${p}/${pdf.numPages})…`);
+      const page = await pdf.getPage(p);
+      const tc = await page.getTextContent();
+      const pageText = tc.items.map(i=>i.str).join(" ");
+      out += "\n" + pageText + "\n";
+    }
+    return normalizeText(out);
+  }
+
+  // =========================
+  // OCR imagen/PDF escaneado (física)
+  // =========================
+  function drawImageToCanvas(img, rotationDeg){
+    const canvas = $("imgCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+
+    // Ajuste canvas por rotación
+    const rot = ((rotationDeg % 360) + 360) % 360;
+    let cw = w, ch = h;
+    if(rot === 90 || rot === 270){
+      cw = h; ch = w;
+    }
+
+    // tamaño “máximo” razonable para OCR sin reventar memoria
+    const maxSide = 1600;
+    const scale = Math.min(1, maxSide / Math.max(cw, ch));
+
+    canvas.width = Math.floor(cw * scale);
+    canvas.height = Math.floor(ch * scale);
+
+    ctx.save();
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // fondo
+    ctx.fillStyle = "#0a0f1c";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // Transform
+    ctx.translate(canvas.width/2, canvas.height/2);
+    ctx.rotate(rot * Math.PI/180);
+    ctx.scale(scale, scale);
+
+    // draw centered
+    ctx.drawImage(img, -w/2, -h/2, w, h);
+    ctx.restore();
+
+    state.fis.canvasReady = true;
+  }
+
+  async function fileToImage(file){
+    const url = URL.createObjectURL(file);
+    try{
+      const img = new Image();
+      img.decoding = "async";
+      img.src = url;
+      await new Promise((res, rej)=>{
+        img.onload = ()=>res();
+        img.onerror = (e)=>rej(e);
+      });
+      return img;
+    } finally{
+      // liberamos luego en caller si se desea; aquí lo dejamos para que el img cargue.
+    }
+  }
+
+  async function ocrCanvas(canvas){
+    const lang = "spa+eng";
+    const result = await Tesseract.recognize(canvas, lang, {
+      logger: (m)=>{
+        if(m.status === "recognizing text"){
+          setOverlayPct((m.progress||0)*100, "OCR: reconociendo texto…");
+        } else if(m.status){
+          $("ovMsg").textContent = "OCR: " + m.status;
         }
       }
-    );
-
-    setStatus("Escaneando QR...");
-  }catch(e){
-    setStatus("No se pudo iniciar cámara. Abre en Chrome/Safari y habilita permisos.", "err");
-    btnStart.disabled=false;
-    btnStop.disabled=true;
+    });
+    return normalizeText(result.data.text || "");
   }
-});
 
-btnStop.addEventListener("click", ()=>{
-  if(controls) controls.stop();
-  btnStart.disabled=false;
-  btnStop.disabled=true;
-  setStatus("Cámara detenida.");
-});
+  async function ocrPdfScanned(file){
+    const ab = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: ab}).promise;
+    let out = "";
 
-btnClear.addEventListener("click", clearAll);
+    for(let p=1; p<=pdf.numPages; p++){
+      setOverlayPct((p-1)/pdf.numPages*100, `Renderizando PDF escaneado (pág ${p}/${pdf.numPages})…`);
+      const page = await pdf.getPage(p);
+      const viewport = page.getViewport({scale: 2}); // calidad OCR
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({canvasContext: ctx, viewport}).promise;
 
-pdfInput.addEventListener("change", async (e)=>{
-  const file=e.target.files[0];
-  if(!file) return;
-  const buf=await file.arrayBuffer();
-  await procesarPDF(buf);
-});
+      // OCR por página
+      $("ovMsg").textContent = `OCR página ${p}/${pdf.numPages}…`;
+      const t = await ocrCanvas(canvas);
+      out += "\n" + t + "\n";
+    }
+    return normalizeText(out);
+  }
 
+  // =========================
+  // Preview helpers
+  // =========================
+  function setPreviewElec(p){
+    state.previewElec = p;
+    $("prevElecRS").value = p.razon_social || "";
+    $("prevElecFecha").value = p.fecha || "";
+    $("prevElecCant").value = p.cantidad || "";
+    $("prevElecDesc").value = p.descripcion || "";
+    $("debugElec").textContent = p.debug || "";
+    $("prevElecMeta").textContent = `Extraído: RS="${p.razon_social||"-"}", Fecha="${p.fecha||"-"}", Cant="${p.cantidad||"-"}"`;
+    $("btnAddPreviewElec").disabled = false;
+    $("btnResetPreviewElec").disabled = false;
+  }
+
+  function setPreviewFis(p){
+    state.previewFis = p;
+    $("prevFisRS").value = p.razon_social || "";
+    $("prevFisFecha").value = p.fecha || "";
+    $("prevFisCant").value = p.cantidad || "";
+    $("prevFisDesc").value = p.descripcion || "";
+    $("debugFis").textContent = p.debug || "";
+    $("prevFisMeta").textContent = `OCR→ Extraído: RS="${p.razon_social||"-"}", Fecha="${p.fecha||"-"}", Cant="${p.cantidad||"-"}"`;
+    $("btnAddPreviewFis").disabled = false;
+    $("btnResetPreviewFis").disabled = false;
+  }
+
+  // =========================
+  // Electrónica: procesar PDF
+  // =========================
+  $("filePdfElec").addEventListener("change", async (ev)=>{
+    const f = ev.target.files?.[0];
+    if(!f) return;
+
+    setOverlay(true, "Leyendo PDF", "Preparando…", 0);
+    try{
+      const text = await extractTextFromPdf(f);
+      setOverlayPct(90, "Extrayendo campos…");
+      const p = extractFieldsFromText(text);
+      setPreviewElec(p);
+      setOverlayPct(100, "Listo");
+    }catch(err){
+      alert("No pude leer el PDF. Si es un PDF escaneado, usa la opción Guía física (OCR).\n\nDetalle: " + err);
+    }finally{
+      setTimeout(()=>setOverlay(false), 250);
+    }
+  });
+
+  $("btnAddPreviewElec").addEventListener("click", ()=>{
+    const p = {
+      razon_social: $("prevElecRS").value,
+      fecha: fmtDateLike($("prevElecFecha").value),
+      cantidad: $("prevElecCant").value,
+      descripcion: $("prevElecDesc").value
+    };
+    addRowFromPreview(p, "ELECTRONICA(PDF)");
+  });
+
+  $("btnResetPreviewElec").addEventListener("click", ()=>{
+    if(!state.previewElec) return;
+    setPreviewElec(state.previewElec);
+  });
+
+  // =========================
+  // Física: cargar archivo + rotación + OCR
+  // =========================
+  $("fileFis").addEventListener("change", async (ev)=>{
+    const f = ev.target.files?.[0];
+    if(!f) return;
+    state.fis.file = f;
+    state.fis.rotation = 0;
+    state.fis.canvasReady = false;
+
+    $("btnRotateL").disabled = false;
+    $("btnRotateR").disabled = false;
+    $("btnRunOcr").disabled = false;
+
+    $("btnAddPreviewFis").disabled = true;
+    $("btnResetPreviewFis").disabled = true;
+    $("debugFis").textContent = "";
+    $("prevFisMeta").textContent = "";
+
+    // Preview en canvas si es imagen; si es PDF, mostramos aviso
+    if(f.type === "application/pdf"){
+      const ctx = $("imgCanvas").getContext("2d");
+      ctx.clearRect(0,0,$("imgCanvas").width,$("imgCanvas").height);
+      ctx.fillStyle = "#0a0f1c";
+      ctx.fillRect(0,0,$("imgCanvas").width,$("imgCanvas").height);
+      ctx.fillStyle = "rgba(232,238,252,.85)";
+      ctx.font = "18px system-ui";
+      ctx.fillText("PDF cargado (escaneado)", 20, 40);
+      ctx.font = "14px system-ui";
+      ctx.fillStyle = "rgba(168,179,214,.95)";
+      ctx.fillText("Pulsa “OCR & Extraer” para procesar páginas.", 20, 70);
+      state.fis.canvasReady = false;
+      return;
+    }
+
+    // Imagen
+    try{
+      const img = await fileToImage(f);
+      drawImageToCanvas(img, state.fis.rotation);
+    }catch(err){
+      alert("No pude cargar la imagen.\n\nDetalle: " + err);
+    }
+  });
+
+  $("btnRotateL").addEventListener("click", async ()=>{
+    if(!state.fis.file || state.fis.file.type === "application/pdf") return;
+    state.fis.rotation = (state.fis.rotation - 90) % 360;
+    const img = await fileToImage(state.fis.file);
+    drawImageToCanvas(img, state.fis.rotation);
+  });
+
+  $("btnRotateR").addEventListener("click", async ()=>{
+    if(!state.fis.file || state.fis.file.type === "application/pdf") return;
+    state.fis.rotation = (state.fis.rotation + 90) % 360;
+    const img = await fileToImage(state.fis.file);
+    drawImageToCanvas(img, state.fis.rotation);
+  });
+
+  $("btnRunOcr").addEventListener("click", async ()=>{
+    const f = state.fis.file;
+    if(!f) return;
+
+    setOverlay(true, "OCR (Guía física)", "Preparando…", 0);
+
+    try{
+      let text = "";
+      if(f.type === "application/pdf"){
+        // PDF escaneado: render + OCR
+        text = await ocrPdfScanned(f);
+      }else{
+        // Imagen: OCR canvas (usar rotación aplicada)
+        if(!state.fis.canvasReady){
+          const img = await fileToImage(f);
+          drawImageToCanvas(img, state.fis.rotation);
+        }
+        const canvas = $("imgCanvas");
+        text = await ocrCanvas(canvas);
+      }
+
+      setOverlayPct(92, "Extrayendo campos…");
+      const p = extractFieldsFromText(text);
+      setPreviewFis(p);
+      setOverlayPct(100, "Listo");
+    }catch(err){
+      alert("OCR falló o no se pudo procesar el archivo.\n\nDetalle: " + err);
+    }finally{
+      setTimeout(()=>setOverlay(false), 250);
+    }
+  });
+
+  $("btnAddPreviewFis").addEventListener("click", ()=>{
+    const p = {
+      razon_social: $("prevFisRS").value,
+      fecha: fmtDateLike($("prevFisFecha").value),
+      cantidad: $("prevFisCant").value,
+      descripcion: $("prevFisDesc").value
+    };
+    addRowFromPreview(p, "FISICA(OCR)");
+  });
+
+  $("btnResetPreviewFis").addEventListener("click", ()=>{
+    if(!state.previewFis) return;
+    setPreviewFis(state.previewFis);
+  });
+
+  // Inicial
+  renderTable();
+  setQrButtons(false);
 </script>
 </body>
 </html>
