@@ -1,311 +1,178 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>QR SUNAT → Copiar URL → WhatsApp</title>
-
-  <!-- QR scanner -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
-
-  <style>
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#0b1220;color:#e5e7eb}
-    .wrap{max-width:860px;margin:0 auto;padding:18px}
-    .card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:14px}
-    h1{font-size:18px;margin:0 0 10px}
-    .muted{opacity:.8;font-size:12px;line-height:1.35}
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    button{border:0;border-radius:12px;padding:10px 12px;background:#22c55e;color:#04120a;font-weight:700;cursor:pointer}
-    button.secondary{background:rgba(255,255,255,.12);color:#e5e7eb;border:1px solid rgba(255,255,255,.16)}
-    button.danger{background:#ef4444;color:#190404}
-    textarea,input{width:100%;box-sizing:border-box;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:rgba(0,0,0,.22);color:#e5e7eb;padding:10px;outline:none}
-    textarea{min-height:90px;resize:vertical}
-    .out{white-space:pre-wrap;word-break:break-word;background:rgba(0,0,0,.25);border:1px dashed rgba(255,255,255,.18);border-radius:12px;padding:10px}
-    .pill{display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);font-size:12px}
-    .ok{color:#86efac}.bad{color:#fca5a5}
-    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace}
-    #reader{max-width:420px}
-    .hide{display:none!important}
-    .spacer{height:10px}
-    .toggle{display:flex;align-items:center;gap:8px;font-size:12px;opacity:.9}
-    .toggle input{width:auto}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Extractor Guía de Remisión SUNAT</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f4; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        h1 { text-align: center; color: #333; font-size: 20px; }
+        textarea { width: 100%; height: 150px; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; resize: none; margin-bottom: 10px; }
+        button { margin: 20px 0; padding: 15px; font-size: 18px; background: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .download-btn { display: block; text-align: center; padding: 20px; font-size: 20px; background: #28a745; color: white; text-decoration: none; border-radius: 8px; margin: 20px 0; }
+        .download-btn:hover { background: #218838; }
+        .info { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .result { flex-grow: 1; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ccc; padding: 10px; text-align: left; vertical-align: top; }
+        th { background: #f0f0f0; }
+        .loading { text-align: center; font-size: 18px; color: #007bff; padding: 40px; }
+        .error { color: red; }
+        input[type="file"] { font-size: 16px; padding: 10px; width: 100%; box-sizing: border-box; }
+    </style>
 </head>
-
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>QR SUNAT → Copiar URL → WhatsApp</h1>
-      <div class="muted">
-        Para usar cámara necesitas abrir esta página en <b>HTTPS</b> (GitHub Pages / Netlify / Vercel).<br>
-        Flujo: escaneas → genera URL (seguro) → copia → enviar por WhatsApp.
-      </div>
-    </div>
+    <h1>Extractor Guía de Remisión SUNAT<br><small>Versión definitiva y robusta</small></h1>
+    <p>Escanea el QR → presiona "Procesar" (o Enter).<br>
+    <strong>Nuevo:</strong> Limpieza ultra robusta + extracción automática (si el navegador lo permite) o con archivo local.</p>
+    
+    <textarea id="scanned" placeholder="Texto escaneado aparecerá aquí..." autofocus></textarea>
+    
+    <button onclick="procesar()">Procesar Guía</button>
+    
+    <div id="resultado" class="result"></div>
 
-    <div class="card" style="margin-top:12px;">
-      <div class="row">
-        <button id="btnStart" class="secondary">📷 Iniciar cámara</button>
-        <button id="btnStop" class="danger hide">⛔ Detener</button>
-        <span id="status" class="pill">Estado: <span class="mono">listo</span></span>
-      </div>
+    <script>
+        const textarea = document.getElementById('scanned');
+        const resultado = document.getElementById('resultado');
 
-      <div class="spacer"></div>
+        textarea.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                procesar();
+            }
+        });
 
-      <label class="toggle">
-        <input id="autoOpenWhats" type="checkbox">
-        Abrir WhatsApp automáticamente al escanear
-      </label>
+        async function procesar() {
+            let raw = textarea.value.trim();
+            if (!raw) return alert('Escanea o ingresa el código QR.');
 
-      <div id="readerWrap" class="hide" style="margin-top:10px;">
-        <div id="reader"></div>
-        <div class="muted" style="margin-top:8px;">
-          Si no inicia cámara: revisa permisos del navegador y que estés en HTTPS.
-        </div>
-      </div>
+            resultado.innerHTML = '<p class="loading">Limpiando y procesando...</p>';
 
-      <div class="spacer"></div>
+            // Limpieza ultra robusta: busca "hashqr" (incluso mangled) y extrae solo el hash
+            let cleaned = raw
+                .replace(/Ñ/gi, ':')
+                .replace(/--/g, '//')
+                .replace(/'/g, '-')
+                .replace(/¡/g, '+')
+                .replace(/¿/g, '=')
+                .replace(/_/g, '?');
 
-      <div class="muted" style="margin-bottom:6px;">(Opcional) Pega el texto del QR si te lo dieron “roto”</div>
-      <textarea id="raw" placeholder="Pega aquí el texto del QR (aunque venga con Ñ, ¿, ¡, guiones, etc.)"></textarea>
-
-      <div class="row" style="margin-top:10px;">
-        <button id="btnNormalize">✨ Generar URL</button>
-        <button id="btnCopy" class="secondary">📋 Copiar URL</button>
-        <button id="btnWhats" class="secondary">🟢 Enviar por WhatsApp</button>
-        <button id="btnClear" class="secondary">Limpiar</button>
-      </div>
-
-      <div class="spacer"></div>
-
-      <div class="muted">URL normalizada (segura para WhatsApp)</div>
-      <div id="urlOut" class="out mono">(aún no generado)</div>
-
-      <div id="msg" class="out" style="margin-top:10px;"></div>
-    </div>
-  </div>
-
-  <script>
-    const $ = (id) => document.getElementById(id);
-
-    let scanner = null;
-    let currentUrl = "";
-
-    function escapeHtml(s){
-      return String(s).replace(/[&<>"']/g, m => ({
-        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
-      }[m]));
-    }
-
-    function setStatus(text, ok=true){
-      $("status").innerHTML = `Estado: <span class="mono ${ok ? "ok" : "bad"}">${escapeHtml(text)}</span>`;
-    }
-
-    function setMsg(text, kind="info"){
-      const color = kind==="ok" ? "ok" : kind==="bad" ? "bad" : "";
-      $("msg").innerHTML = `<span class="${color}">${escapeHtml(text)}</span>`;
-    }
-
-    async function copyToClipboard(text){
-      if (!text) throw new Error("No hay URL para copiar.");
-      if (navigator.clipboard && window.isSecureContext){
-        await navigator.clipboard.writeText(text);
-        return;
-      }
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      ta.remove();
-    }
-
-    // 1) Normalizador (para texto QR “roto”/OCR)
-    function normalizeSunatGreUrl(raw){
-      let s = (raw || "").trim();
-      if (!s) return "";
-
-      // Quitar espacios visibles
-      s = s.replace(/\s+/g, "");
-
-      // Arreglos típicos de OCR/lectura (tu caso)
-      s = s
-        .replace(/httpsÑ/gi, "https://")
-        .replace(/httpsñ/gi, "https://")
-        .replace(/Ñ|ñ/g, "://")
-        .replace(/'/g, "")
-        .replace(/—|–/g, "-")
-        .replace(/_/g, "?")
-        .replace(/¿/g, "=")
-        .replace(/¡/g, "&");
-
-      // Forzar dominio e-factura
-      s = s.replace(/https:\/\/e[-]?factura/gi, "https://e-factura");
-      s = s.replace(/https:\/\/efactura/gi, "https://e-factura");
-
-      // Convertir guiones a "/" después del dominio sunat.gob.pe (cuando viene pegado)
-      const marker = "sunat.gob.pe";
-      const idx = s.toLowerCase().indexOf(marker);
-      if (idx !== -1){
-        const before = s.slice(0, idx + marker.length);
-        let after = s.slice(idx + marker.length);
-
-        if (after && !after.startsWith("/") && !after.startsWith("-") && !after.startsWith("?")) after = "/" + after;
-
-        const qPos = after.indexOf("?");
-        let path = qPos >= 0 ? after.slice(0, qPos) : after;
-        let query = qPos >= 0 ? after.slice(qPos) : "";
-
-        path = path.replace(/-+/g, "/");
-        query = query.replace(/\?hashqr=/i, "?hashqr=");
-
-        s = before + path + query;
-      }
-
-      if (!/^https:\/\//i.test(s)) s = "https://" + s.replace(/^\/+/, "");
-      s = s.replace(/^https:\/{3,}/i, "https://");
-
-      // Validar URL
-      try { return new URL(s).toString(); } catch { return ""; }
-    }
-
-    // 2) Canonicalizador “seguro para WhatsApp”
-    // - Si el hashqr trae espacios (por copy/paste), los convierte a "+"
-    // - Asegura que se encodee correctamente (%2B, %3D, etc.)
-    function canonicalizeSunatUrl(url){
-      const u = new URL(url);
-      let h = u.searchParams.get("hashqr") || "";
-
-      // si llegó " " en lugar de "+"
-      h = h.replace(/ /g, "+").trim();
-
-      // reconstruye query para que el navegador codifique bien
-      u.search = "";
-      if (h) u.searchParams.set("hashqr", h);
-
-      return u.toString();
-    }
-
-    function setUrl(url){
-      currentUrl = url || "";
-      $("urlOut").textContent = currentUrl || "(no pude generar URL)";
-    }
-
-    function openWhatsAppWithUrl(url){
-      const text = encodeURIComponent(url);
-      // wa.me funciona en móvil y escritorio (web.whatsapp)
-      window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
-    }
-
-    async function processRawToUrl(raw, autoCopy=true){
-      const norm = normalizeSunatGreUrl(raw);
-      if (!norm){
-        setUrl("");
-        setMsg("No pude reconstruir la URL. Pega el texto completo o vuelve a escanear.", "bad");
-        return;
-      }
-
-      const safe = canonicalizeSunatUrl(norm);
-      setUrl(safe);
-
-      if (autoCopy){
-        try{
-          await copyToClipboard(safe);
-          setMsg("URL generada y copiada ✅", "ok");
-        }catch(e){
-          setMsg("URL generada ✅ (no pude copiar automáticamente: " + e.message + ")", "bad");
-        }
-      } else {
-        setMsg("URL generada ✅", "ok");
-      }
-    }
-
-    // ---- Botones manuales ----
-    $("btnNormalize").addEventListener("click", async () => {
-      await processRawToUrl($("raw").value, true);
-    });
-
-    $("btnCopy").addEventListener("click", async () => {
-      try{
-        await copyToClipboard(currentUrl);
-        setMsg("Copiado ✅", "ok");
-      }catch(e){
-        setMsg("No pude copiar: " + e.message, "bad");
-      }
-    });
-
-    $("btnWhats").addEventListener("click", async () => {
-      if (!currentUrl){
-        setMsg("Primero genera la URL.", "bad");
-        return;
-      }
-      try { await copyToClipboard(currentUrl); } catch {}
-      openWhatsAppWithUrl(currentUrl);
-      setMsg("Abriendo WhatsApp… (el link ya está copiado y también va en el mensaje).", "ok");
-    });
-
-    $("btnClear").addEventListener("click", () => {
-      $("raw").value = "";
-      setUrl("");
-      $("urlOut").textContent = "(aún no generado)";
-      setMsg("Listo.", "info");
-    });
-
-    // ---- QR Scanner ----
-    $("btnStart").addEventListener("click", async () => {
-      $("readerWrap").classList.remove("hide");
-      $("btnStop").classList.remove("hide");
-      $("btnStart").classList.add("hide");
-
-      try{
-        setStatus("iniciando…", true);
-        scanner = new Html5Qrcode("reader");
-        const cams = await Html5Qrcode.getCameras();
-        const camId = cams?.[0]?.id;
-
-        await scanner.start(
-          camId,
-          { fps: 12, qrbox: { width: 260, height: 260 } },
-          async (decodedText) => {
-            $("raw").value = decodedText;
-
-            await processRawToUrl(decodedText, true);
-            setStatus("QR leído", true);
-
-            // Opcional: abrir WhatsApp automáticamente
-            if ($("autoOpenWhats").checked && currentUrl){
-              // Nota: algunos navegadores bloquean popups si no hay interacción directa.
-              openWhatsAppWithUrl(currentUrl);
+            let hashIndex = cleaned.toLowerCase().indexOf('hashqr');
+            let hashRaw = '';
+            if (hashIndex !== -1) {
+                hashRaw = cleaned.substring(hashIndex + 6);
+                // Limpia caracteres no válidos del hash
+                hashRaw = hashRaw.replace(/[^A-Za-z0-9+\/=]/g, '');
             }
 
-            // detener automático
-            $("btnStop").click();
-          },
-          () => {}
-        );
-        setStatus("escaneando…", true);
-      }catch(e){
-        setStatus("error cámara", false);
-        setMsg("No pude iniciar cámara. Asegúrate de estar en HTTPS y aceptar permisos.", "bad");
-      }
-    });
+            if (hashRaw.length < 80) {
+                resultado.innerHTML = `<div class="info error"><strong>No se encontró el hash correcto.</strong><br>Texto recibido:<pre>${raw}</pre>Edita o reescanea.</div>`;
+                return;
+            }
 
-    $("btnStop").addEventListener("click", async () => {
-      try{
-        if (scanner){
-          await scanner.stop();
-          await scanner.clear();
+            let urlLimpia = 'https://e-factura.sunat.gob.pe/v1/contribuyente/gre/comprobantes/descargaqr?hashqr=' + encodeURIComponent(hashRaw);
+
+            // Intento automático (puede fallar por CORS)
+            try {
+                resultado.innerHTML = '<p class="loading">Intentando extracción automática...<br>(5-20 segundos)</p>';
+                let response = await fetch(urlLimpia);
+                if (!response.ok) throw new Error('Error descarga');
+                let blob = await response.blob();
+                await extraerDeZip(blob, urlLimpia);
+            } catch (err) {
+                // Fallback: descarga manual + opción subir ZIP local
+                mostrarFallback(urlLimpia);
+            }
+
+            textarea.value = '';
+            textarea.focus();
         }
-      }catch{}
-      scanner = null;
-      $("readerWrap").classList.add("hide");
-      $("btnStop").classList.add("hide");
-      $("btnStart").classList.remove("hide");
-      setStatus("listo", true);
-    });
 
-    // Init
-    setMsg("Escanea el QR: se generará un URL seguro, se copiará y podrás enviarlo por WhatsApp.", "info");
-    setUrl("");
-  </script>
+        function mostrarFallback(urlLimpia) {
+            resultado.innerHTML = `
+                <div class="info">
+                    <h2>¡URL limpiada correctamente!</h2>
+                    <p>El navegador bloqueó la lectura automática (restricción de seguridad CORS, común en sitios gubernamentales).</p>
+                    <a href="${urlLimpia}" class="download-btn" download="guia-remision.zip">Descargar ZIP ahora</a>
+                    <p><strong>Opción 1 (rápida):</strong> Abre el PDF del ZIP → todo está ahí claramente.</p>
+                    <p><strong>Opción 2 (extracción aquí):</strong></p>
+                    <ol>
+                        <li>Descarga el ZIP con el botón verde.</li>
+                        <li>Ve a "Descargas" en tu celular y selecciona el archivo aquí:</li>
+                    </ol>
+                    <input type="file" id="localzip" accept=".zip,application/zip,application/octet-stream">
+                    <p>O abre el PDF directamente: nombre empresa arriba, placa en transporte, tabla en el centro.</p>
+                </div>
+            `;
+            document.getElementById('localzip').addEventListener('change', async (e) => {
+                let file = e.target.files[0];
+                if (file) await extraerDeZip(file, urlLimpia);
+            });
+        }
+
+        async function extraerDeZip(source, urlLimpia) {
+            try {
+                resultado.innerHTML = '<p class="loading">Extrayendo datos del XML...</p>';
+                let zip = await JSZip.loadAsync(source);
+                let xmlFile = Object.keys(zip.files).find(f => f.toLowerCase().endsWith('.xml') && !zip.files[f].dir);
+                if (!xmlFile) throw new Error('No hay XML en el ZIP');
+
+                let xmlStr = await zip.file(xmlFile).async('text');
+                let parser = new DOMParser();
+                let xmlDoc = parser.parseFromString(xmlStr, 'application/xml');
+
+                const ns = p => ({ cac: 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2',
+                                   cbc: 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2' }[p] || null);
+
+                const xpath = (q, ctx = xmlDoc, type = XPathResult.STRING_TYPE) => xmlDoc.evaluate(q, ctx, ns, type, null);
+
+                let empresa = xpath('//cac:DespatchSupplierParty//cac:PartyLegalEntity/cbc:RegistrationName || //cac:DespatchSupplierParty//cac:PartyName/cbc:Name').stringValue.trim();
+                let ruc = xpath('//cac:DespatchSupplierParty//cac:PartyIdentification/cbc:ID[@schemeID="6"]').stringValue.trim();
+
+                let modalidadCode = xpath('//cac:ShipmentStage/cbc:TransportModeCode').stringValue.trim();
+                let modalidad = modalidadCode === '01' ? 'Privado' : (modalidadCode === '02' ? 'Público' : 'Otro');
+
+                let placa = xpath('//cac:RoadTransport/cbc:LicensePlateID').stringValue.trim().toUpperCase();
+                let conductorDni = xpath('//cac:DriverPerson/cbc:ID').stringValue.trim();
+                let transportista = xpath('//cac:CarrierParty//cbc:RegistrationName || //cac:CarrierParty//cbc:Name').stringValue.trim();
+
+                let lines = xpath('//cac:DespatchLine', null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE);
+                let tabla = `<table><thead><tr><th>Ítem</th><th>Cantidad</th><th>Unidad</th><th>Descripción detallada</th></tr></thead><tbody>`;
+                for (let i = 0; i < lines.snapshotLength; i++) {
+                    let line = lines.snapshotItem(i);
+                    let item = xpath('cbc:ID', line).stringValue.trim() || (i+1);
+                    let cant = xpath('cbc:DeliveredQuantity', line).stringValue.trim();
+                    let unidad = xpath('cbc:DeliveredQuantity/@unitCode', line).stringValue.trim();
+                    let descs = xpath('cac:Item/cbc:Description', line, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE);
+                    let desc = '';
+                    for (let j = 0; j < descs.snapshotLength; j++) {
+                        if (j > 0) desc += '<br>';
+                        desc += descs.snapshotItem(j).textContent.trim();
+                    }
+                    tabla += `<tr><td>${item}</td><td>${cant}</td><td>${unidad}</td><td>${desc || 'Sin descripción'}</td></tr>`;
+                }
+                tabla += `</tbody></table>`;
+                if (lines.snapshotLength === 0) tabla = '<p>No hay ítems.</p>';
+
+                resultado.innerHTML = `
+                    <div class="info">
+                        <h2>¡Datos extraídos correctamente!</h2>
+                        <p><strong>Empresa remitente:</strong> ${empresa || 'No encontrado'} ${ruc ? `(RUC: ${ruc})` : ''}</p>
+                        <p><strong>Modalidad:</strong> ${modalidad}</p>
+                        ${modalidadCode === '01' ? `<p><strong>Placa:</strong> ${placa || 'No encontrada'}</p>${conductorDni ? `<p><strong>DNI Conductor:</strong> ${conductorDni}</p>` : ''}` : `<p><strong>Transportista:</strong> ${transportista || 'No encontrado'}</p>`}
+                        <h3>Bienes trasladados:</h3>
+                        ${tabla}
+                        <a href="${urlLimpia}" class="download-btn" download="guia.zip">Descargar ZIP completo</a>
+                    </div>
+                `;
+            } catch (err) {
+                resultado.innerHTML = `<div class="info error"><strong>Error al extraer:</strong> ${err.message}<br>Intenta de nuevo o abre el PDF.</div>
+                    <a href="${urlLimpia}" class="download-btn">Descargar ZIP</a>`;
+            }
+        }
+    </script>
 </body>
 </html>
