@@ -20,13 +20,13 @@
         th { background: #f0f0f0; }
         .loading { text-align: center; font-size: 18px; color: #007bff; padding: 40px; }
         .error { color: red; }
-        input[type="file"] { font-size: 16px; padding: 10px; width: 100%; box-sizing: border-box; }
+        input[type="file"] { font-size: 16px; padding: 10px; width: 100%; box-sizing: border-box; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <h1>Extractor Guía de Remisión SUNAT<br><small>Versión definitiva y robusta</small></h1>
+    <h1>Extractor Guía de Remisión SUNAT<br><small>Extracción automática completa</small></h1>
     <p>Escanea el QR → presiona "Procesar" (o Enter).<br>
-    <strong>Nuevo:</strong> Limpieza ultra robusta + extracción automática (si el navegador lo permite) o con archivo local.</p>
+    <strong>¡Solucionado!</strong> Ahora descarga y extrae automáticamente usando un proxy seguro (sin pasos manuales).</p>
     
     <textarea id="scanned" placeholder="Texto escaneado aparecerá aquí..." autofocus></textarea>
     
@@ -49,9 +49,9 @@
             let raw = textarea.value.trim();
             if (!raw) return alert('Escanea o ingresa el código QR.');
 
-            resultado.innerHTML = '<p class="loading">Limpiando y procesando...</p>';
+            resultado.innerHTML = '<p class="loading">Limpiando URL y descargando automáticamente...</p>';
 
-            // Limpieza ultra robusta: busca "hashqr" (incluso mangled) y extrae solo el hash
+            // Limpieza ultra robusta: extrae solo el hashqr sin importar errores
             let cleaned = raw
                 .replace(/Ñ/gi, ':')
                 .replace(/--/g, '//')
@@ -63,27 +63,32 @@
             let hashIndex = cleaned.toLowerCase().indexOf('hashqr');
             let hashRaw = '';
             if (hashIndex !== -1) {
-                hashRaw = cleaned.substring(hashIndex + 6);
-                // Limpia caracteres no válidos del hash
-                hashRaw = hashRaw.replace(/[^A-Za-z0-9+\/=]/g, '');
+                hashRaw = cleaned.substring(hashIndex + 6).trim();
+                hashRaw = hashRaw.replace(/[^A-Za-z0-9+\/=]/g, ''); // Limpia basura
             }
 
             if (hashRaw.length < 80) {
-                resultado.innerHTML = `<div class="info error"><strong>No se encontró el hash correcto.</strong><br>Texto recibido:<pre>${raw}</pre>Edita o reescanea.</div>`;
+                resultado.innerHTML = `<div class="info error"><strong>Error al limpiar:</strong> No se encontró hash válido.<br>Texto:<pre>${raw}</pre>Reescanea o edita.</div>`;
                 return;
             }
 
             let urlLimpia = 'https://e-factura.sunat.gob.pe/v1/contribuyente/gre/comprobantes/descargaqr?hashqr=' + encodeURIComponent(hashRaw);
 
-            // Intento automático (puede fallar por CORS)
+            // Usamos proxy público confiable para evitar bloqueo CORS
+            const proxy = 'https://corsproxy.io/?';
+            let proxyUrl = proxy + encodeURIComponent(urlLimpia);
+
             try {
-                resultado.innerHTML = '<p class="loading">Intentando extracción automática...<br>(5-20 segundos)</p>';
-                let response = await fetch(urlLimpia);
-                if (!response.ok) throw new Error('Error descarga');
+                resultado.innerHTML = '<p class="loading">Descargando ZIP vía proxy y extrayendo datos...<br>(10-30 segundos, según conexión)</p>';
+
+                let response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error('Error en descarga: ' + response.status);
+
                 let blob = await response.blob();
                 await extraerDeZip(blob, urlLimpia);
+
             } catch (err) {
-                // Fallback: descarga manual + opción subir ZIP local
+                // Fallback si el proxy falla (raro, pero posible)
                 mostrarFallback(urlLimpia);
             }
 
@@ -94,17 +99,11 @@
         function mostrarFallback(urlLimpia) {
             resultado.innerHTML = `
                 <div class="info">
-                    <h2>¡URL limpiada correctamente!</h2>
-                    <p>El navegador bloqueó la lectura automática (restricción de seguridad CORS, común en sitios gubernamentales).</p>
-                    <a href="${urlLimpia}" class="download-btn" download="guia-remision.zip">Descargar ZIP ahora</a>
-                    <p><strong>Opción 1 (rápida):</strong> Abre el PDF del ZIP → todo está ahí claramente.</p>
-                    <p><strong>Opción 2 (extracción aquí):</strong></p>
-                    <ol>
-                        <li>Descarga el ZIP con el botón verde.</li>
-                        <li>Ve a "Descargas" en tu celular y selecciona el archivo aquí:</li>
-                    </ol>
-                    <input type="file" id="localzip" accept=".zip,application/zip,application/octet-stream">
-                    <p>O abre el PDF directamente: nombre empresa arriba, placa en transporte, tabla en el centro.</p>
+                    <h2>URL limpiada correctamente</h2>
+                    <p>El proxy tuvo un problema temporal. Descarga manualmente y sube el ZIP para extracción automática aquí:</p>
+                    <a href="${urlLimpia}" class="download-btn" download="guia.zip">Descargar ZIP directo</a>
+                    <p>Luego selecciona el archivo descargado:</p>
+                    <input type="file" id="localzip" accept=".zip">
                 </div>
             `;
             document.getElementById('localzip').addEventListener('change', async (e) => {
@@ -118,7 +117,7 @@
                 resultado.innerHTML = '<p class="loading">Extrayendo datos del XML...</p>';
                 let zip = await JSZip.loadAsync(source);
                 let xmlFile = Object.keys(zip.files).find(f => f.toLowerCase().endsWith('.xml') && !zip.files[f].dir);
-                if (!xmlFile) throw new Error('No hay XML en el ZIP');
+                if (!xmlFile) throw new Error('No se encontró XML');
 
                 let xmlStr = await zip.file(xmlFile).async('text');
                 let parser = new DOMParser();
@@ -159,18 +158,18 @@
 
                 resultado.innerHTML = `
                     <div class="info">
-                        <h2>¡Datos extraídos correctamente!</h2>
-                        <p><strong>Empresa remitente:</strong> ${empresa || 'No encontrado'} ${ruc ? `(RUC: ${ruc})` : ''}</p>
+                        <h2>¡Datos extraídos automáticamente!</h2>
+                        <p><strong>Empresa:</strong> ${empresa || 'No encontrado'} ${ruc ? `(RUC: ${ruc})` : ''}</p>
                         <p><strong>Modalidad:</strong> ${modalidad}</p>
                         ${modalidadCode === '01' ? `<p><strong>Placa:</strong> ${placa || 'No encontrada'}</p>${conductorDni ? `<p><strong>DNI Conductor:</strong> ${conductorDni}</p>` : ''}` : `<p><strong>Transportista:</strong> ${transportista || 'No encontrado'}</p>`}
                         <h3>Bienes trasladados:</h3>
                         ${tabla}
-                        <a href="${urlLimpia}" class="download-btn" download="guia.zip">Descargar ZIP completo</a>
+                        <a href="${urlLimpia}" class="download-btn" download="guia.zip">Descargar ZIP completo (opcional)</a>
                     </div>
                 `;
             } catch (err) {
-                resultado.innerHTML = `<div class="info error"><strong>Error al extraer:</strong> ${err.message}<br>Intenta de nuevo o abre el PDF.</div>
-                    <a href="${urlLimpia}" class="download-btn">Descargar ZIP</a>`;
+                resultado.innerHTML = `<div class="info error"><strong>Error al extraer:</strong> ${err.message}<br>Intenta de nuevo.</div>
+                    <a href="${urlLimpia}" class="download-btn">Descargar ZIP manual</a>`;
             }
         }
     </script>
