@@ -126,19 +126,9 @@
 
     <div class="card">
         <div class="row">
-            <button id="btnStart" class="primary">Iniciar cÃ¡mara trasera</button>
+            <button id="btnStart" class="primary">Iniciar cámara trasera</button>
             <button id="btnStop">Detener</button>
             <span id="status" class="pill">Listo</span>
-        </div>
-
-        <div style="height:10px"></div>
-        <div class="row">
-            <input id="webappUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"
-                style="flex:1; min-width:260px;" />
-            <button id="btnSaveWebapp">Guardar API</button>
-        </div>
-        <div class="muted" style="margin-top:6px;">
-            GitHub Pages: puedes usar <code>?webapp=https://script.google.com/macros/s/.../exec</code>.
         </div>
 
         <div style="height:12px"></div>
@@ -149,16 +139,16 @@
 
         <div style="margin-top:10px; border-top:1px solid #eee; padding-top:10px;">
             <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none" />
-            <button id="btnManual" style="background:#005cbf; color:white; width:100%;">ðŸ“¸ Foto GuÃ­a Manual</button>
+            <button id="btnManual" style="background:#005cbf; color:white; width:100%;">📸 Foto Guía Manual</button>
         </div>
 
-        <div class="muted" style="margin-top:10px;">Ãšltimo URL:</div>
+        <div class="muted" style="margin-top:10px;">Último URL:</div>
         <pre id="lastUrl"></pre>
     </div>
 
     <div class="card">
         <b>Respuesta</b>
-        <pre id="out" class="muted">AÃºn no hay datos.</pre>
+        <pre id="out" class="muted">Aún no hay datos.</pre>
     </div>
 
     <!-- Modal -->
@@ -179,8 +169,6 @@
 
         const btnStart = document.getElementById("btnStart");
         const btnStop = document.getElementById("btnStop");
-        const webappUrlInput = document.getElementById("webappUrl");
-        const btnSaveWebapp = document.getElementById("btnSaveWebapp");
 
         const btnManual = document.getElementById("btnManual");
         const fileInput = document.getElementById("fileInput");
@@ -232,7 +220,6 @@
 
         function initWebAppConfig() {
             APPS_SCRIPT_WEBAPP_URL = resolveWebAppUrl();
-            webappUrlInput.value = APPS_SCRIPT_WEBAPP_URL;
         }
 
         function extractHashqr(raw) {
@@ -290,11 +277,11 @@
         async function processUrlFlow(sunatUrl) {
             if (busy) return;
             if (!sunatUrl.startsWith(SUNAT_PREFIX)) {
-                setStatus("URL no vÃ¡lida SUNAT", "err");
+                setStatus("URL no válida SUNAT", "err");
                 return;
             }
 
-            toggleBusy(true, "Procesando cÃ³digo QR...");
+            toggleBusy(true, "Procesando código QR...");
             setStatus("Procesando completo...");
             lastUrlEl.textContent = sunatUrl;
 
@@ -317,13 +304,13 @@
 
             const clean = buildSunatCleanUrl(decodedText) || decodedText;
             if (clean.startsWith(SUNAT_PREFIX)) processUrlFlow(clean);
-            else setStatus("QR leÃ­do (no SUNAT)", "ok");
+            else setStatus("QR leído (no SUNAT)", "ok");
         }
 
 
 
         async function startScanner() {
-            setStatus("Iniciando cÃ¡maraâ€¦");
+            setStatus("Iniciando cámara...");
             if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
 
             const config = {
@@ -340,7 +327,7 @@
                     onScanSuccess,
                     () => { }
                 );
-                setStatus("CÃ¡mara trasera activa", "ok");
+                setStatus("Cámara trasera activa", "ok");
             } catch (e) {
                 try {
                     await html5QrCode.start(
@@ -349,9 +336,9 @@
                         onScanSuccess,
                         () => { }
                     );
-                    setStatus("CÃ¡mara trasera activa", "ok");
+                    setStatus("Cámara trasera activa", "ok");
                 } catch (e2) {
-                    setStatus("No se pudo iniciar cÃ¡mara", "err");
+                    setStatus("No se pudo iniciar cámara", "err");
                     outEl.textContent = String(e2);
                 }
             }
@@ -371,25 +358,6 @@
         }
 
         initWebAppConfig();
-
-        btnSaveWebapp.addEventListener("click", () => {
-            const normalized = normalizeWebAppUrl(webappUrlInput.value);
-            if (!normalized) {
-                setStatus("API invalida: usa script.google.com/.../exec", "err");
-                return;
-            }
-            APPS_SCRIPT_WEBAPP_URL = normalized;
-            webappUrlInput.value = normalized;
-            try { localStorage.setItem(WEBAPP_STORAGE_KEY, normalized); } catch { }
-            setStatus("API guardada", "ok");
-        });
-
-        webappUrlInput.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-                e.preventDefault();
-                btnSaveWebapp.click();
-            }
-        });
 
         btnStart.addEventListener("click", startScanner);
         btnStop.addEventListener("click", stopScanner);
@@ -549,11 +517,11 @@
             `;
         }
 
-        // test rÃ¡pido de ping
+        // test rápido de ping
         (async () => {
             try {
                 const r = await jsonpCall({ action: "ping" }, 20000);
-                if (r?.ok) setStatus("API OK âœ…", "ok");
+                if (r?.ok) setStatus("API OK ✓", "ok");
             } catch { }
         })();
     </script>
