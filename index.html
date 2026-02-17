@@ -6,23 +6,75 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>GRE SUNAT | Escaneo masivo</title>
     <style>
-        body { font-family: system-ui, Arial; margin: 16px; }
-        .card { border: 1px solid #ddd; border-radius: 12px; padding: 12px; margin: 12px 0; }
-        #reader { width: min(420px, 100%); margin: 0 auto; }
-        .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-        button, input { padding: 10px 12px; border-radius: 10px; border: 1px solid #ddd; background: #fff; }
-        button { cursor: pointer; }
-        button.primary { border-color: #111; }
-        .muted { color: #666; font-size: 13px; }
-        .pill { display: inline-block; padding: 4px 8px; border: 1px solid #eee; border-radius: 999px; font-size: 12px; }
-        .ok { color: #0a7a2f; font-weight: 700; }
-        .err { color: #b00020; font-weight: 700; }
-        pre { white-space: pre-wrap; word-break: break-word; margin: 8px 0 0; }
+        body {
+            font-family: system-ui, Arial;
+            margin: 16px;
+        }
+
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 12px;
+            margin: 12px 0;
+        }
+
+        #reader {
+            width: min(420px, 100%);
+            margin: 0 auto;
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        button,
+        input {
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+            background: #fff;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        button.primary {
+            border-color: #111;
+        }
+
+        .muted {
+            color: #666;
+            font-size: 13px;
+        }
+
+        .pill {
+            display: inline-block;
+            padding: 4px 8px;
+            border: 1px solid #eee;
+            border-radius: 999px;
+            font-size: 12px;
+        }
+
+        .ok {
+            color: #0a7a2f;
+            font-weight: 700;
+        }
+
+        .err {
+            color: #b00020;
+            font-weight: 700;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin: 8px 0 0;
+        }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    </script>
 </head>
 
 <body>
@@ -41,8 +93,11 @@
         <div style="height:12px"></div>
         <div class="muted">O pega el URL:</div>
         <div class="row">
-            <input id="urlInput" style="flex:1; min-width: 240px;" placeholder="https://e-factura.sunat.gob.pe/...hashqr=..." />
+            <input id="urlInput" style="flex:1; min-width: 240px;"
+                placeholder="https://e-factura.sunat.gob.pe/...hashqr=..." />
             <button id="btnProcess">Procesar URL</button>
+            <button id="btnBatch" style="background:#0a7a2f; color:white; border-color:#05521f;">Procesar
+                Pendientes</button>
         </div>
 
         <div class="muted" style="margin-top:10px;">Último URL:</div>
@@ -56,13 +111,16 @@
 
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script>
-        // ¡RECUERDA ACTUALIZAR ESTE URL CON TU NUEVO DESPLIEGUE DE APPS SCRIPT!
-        const APPS_SCRIPT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyuh2Gg_CV2vF2s97xD0rdnNZJk78rGqvnHT-zjaIPHENGrpuBUK5AeORORM-o7Ahpr/exec";
-        const SUNAT_PREFIX = "https://e-factura.sunat.gob.pe/v1/contribuyente/gre/comprobantes/descargaqr?hashqr=";
+        const APPS_SCRIPT_WEBAPP_URL =
+            "https://script.google.com/macros/s/AKfycbzJYFR2C-6w9cAf6zuEB4CdfKV6ngYH49YkAe-QJsfwlg_8P1ezPt_4tuPQeq_WAMil/exec";
+
+        const SUNAT_PREFIX =
+            "https://e-factura.sunat.gob.pe/v1/contribuyente/gre/comprobantes/descargaqr?hashqr=";
 
         const btnStart = document.getElementById("btnStart");
         const btnStop = document.getElementById("btnStop");
         const btnProcess = document.getElementById("btnProcess");
+        const btnBatch = document.getElementById("btnBatch");
         const urlInput = document.getElementById("urlInput");
         const statusEl = document.getElementById("status");
         const lastUrlEl = document.getElementById("lastUrl");
@@ -103,7 +161,10 @@
 
                 window[cb] = (data) => { cleanup(); resolve(data); };
 
-                script.onerror = () => { cleanup(); reject(new Error("JSONP no cargó.")); };
+                script.onerror = () => {
+                    cleanup();
+                    reject(new Error("JSONP no cargó. URL: " + url));
+                };
 
                 function cleanup() {
                     if (timer) clearTimeout(timer);
@@ -111,44 +172,14 @@
                     if (script.parentNode) script.parentNode.removeChild(script);
                 }
 
-                timer = setTimeout(() => { cleanup(); reject(new Error("Timeout en API.")); }, timeoutMs);
+                timer = setTimeout(() => {
+                    cleanup();
+                    reject(new Error("Timeout en API. URL: " + url));
+                }, timeoutMs);
 
                 script.src = url;
                 document.body.appendChild(script);
             });
-        }
-
-        async function extractTextFromBase64Pdf(base64Data) {
-            const raw = atob(base64Data);
-            const uint8Array = new Uint8Array(raw.length);
-            for (let i = 0; i < raw.length; i++) {
-                uint8Array[i] = raw.charCodeAt(i);
-            }
-
-            const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
-            let fullText = "";
-            
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const textContent = await page.getTextContent();
-                
-                let lastY = null;
-                let pageText = "";
-                
-                // Extraer simulando los saltos de línea basados en coordenadas (Y) para que tu Regex funcione bien
-                for (const item of textContent.items) {
-                    const currentY = item.transform[5];
-                    if (lastY !== null && Math.abs(lastY - currentY) > 4) {
-                        pageText += "\n"; // Salto de línea real
-                    } else if (lastY !== null) {
-                        pageText += " ";  // Espacio en la misma línea
-                    }
-                    pageText += item.str.trim();
-                    lastY = currentY;
-                }
-                fullText += pageText + "\n";
-            }
-            return fullText;
         }
 
         async function processUrlFlow(sunatUrl) {
@@ -159,62 +190,84 @@
             }
 
             busy = true;
+            setStatus("Procesando completo...");
             lastUrlEl.textContent = sunatUrl;
 
             try {
-                // PASO 1: Descargar el archivo a Drive y obtener Base64
-                setStatus("Descargando PDF de SUNAT...");
-                const resp1 = await jsonpCall({ action: "step1_download", url: sunatUrl });
-                
-                if (!resp1?.ok) throw new Error(resp1.error || "Fallo en descarga");
-
-                // PASO 2: Extraer texto en el navegador (0% OCR, lectura limpia)
-                setStatus("Extrayendo texto puro...");
-                const textExtracted = await extractTextFromBase64Pdf(resp1.base64);
-                
-                // Recortamos el texto para asegurar que no exceda los límites de la URL en JSONP
-                const cleanText = textExtracted.slice(0, 4000);
-
-                // PASO 3: Enviar el texto extraído al servidor para procesar datos
-                setStatus("Guardando datos en Sheet...");
-                const resp2 = await jsonpCall({ 
-                    action: "step2_parse", 
-                    fileId: resp1.fileId, 
-                    text: cleanText 
-                });
-
-                if (resp2?.ok) {
+                const resp = await jsonpCall({ action: "process", url: sunatUrl });
+                if (resp?.ok) {
                     setStatus("Guardado ✅", "ok");
+
+                    const d = resp.data || {};
+                    // Tabla detallada
                     outEl.innerHTML = `
-                        <table style="width:100%; border-collapse:collapse; margin-top:10px;">
-                            <tr style="border-bottom:1px solid #eee;">
-                                <th style="text-align:left; padding:8px; background:#f9f9f9;">N° GUÍA</th>
-                                <td style="padding:8px; font-weight:bold;">${resp2.guia || "No detectado"}</td>
-                            </tr>
-                            <tr>
-                                <th style="text-align:left; padding:8px; background:#f9f9f9;">PDF</th>
-                                <td style="padding:8px;">
-                                    <a href="${resp2.fileUrl}" target="_blank">Ver archivo</a>
-                                </td>
+                        <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:13px;">
+                            <tr style="background:#f0f0f0;"><th colspan="2" style="padding:6px; border:1px solid #ddd;">DATOS EXTRAÍDOS</th></tr>
+                            <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">N° GUÍA</th><td style="border:1px solid #ddd; padding:4px;"><b>${d.N_SERIE || ""}-${d.N_DOCUMENTO || ""}</b></td></tr>
+                            <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">FECHA</th><td style="border:1px solid #ddd; padding:4px;">${d.FECHA || ""}</td></tr>
+                            <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">RUC</th><td style="border:1px solid #ddd; padding:4px;">${d.RUC || ""}</td></tr>
+                            <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">EMPRESA</th><td style="border:1px solid #ddd; padding:4px;">${d.EMPRESA || ""}</td></tr>
+                            <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">DESCRIP.</th><td style="border:1px solid #ddd; padding:4px;">${d.DESCRIPCION || ""}</td></tr>
+                            <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">CANTIDAD</th><td style="border:1px solid #ddd; padding:4px;">${d.CANTIDAD || ""} ${d.UNIDAD_MEDIDA || ""}</td></tr>
+                            <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">OP</th><td style="border:1px solid #ddd; padding:4px;">${d.OP || ""}</td></tr>
+                            <tr style="background:#f9f9f9;">
+                                <th style="text-align:left; border:1px solid #ddd; padding:4px;">PDF</th>
+                                <td style="border:1px solid #ddd; padding:4px;"><a href="${resp.fileUrl}" target="_blank">Ver PDF</a></td>
                             </tr>
                         </table>
+
+                        <details style="margin-top:10px; border:1px solid #eee; padding:8px; border-radius:6px;">
+                            <summary style="cursor:pointer; font-weight:bold; color:#555;">Ver Texto Completo (Raw)</summary>
+                            <pre style="white-space:pre-wrap; font-size:11px; color:#333; margin-top:5px;">${resp.fullText || "Sin texto"}</pre>
+                        </details>
                     `;
                 } else {
                     setStatus("Error API", "err");
-                    outEl.textContent = JSON.stringify(resp2, null, 2);
+                    outEl.textContent = JSON.stringify(resp, null, 2);
                 }
             } catch (e) {
-                setStatus("Error", "err");
+                setStatus("Error JSONP", "err");
                 outEl.textContent = (e && e.message) ? e.message : String(e);
             } finally {
                 busy = false;
             }
         }
 
-        function onScanSuccess(decodedText) {
+        async function onScanSuccess(decodedText) {
+            // DETENER ESCANER AL DETECTAR
+            try {
+                await stopScanner();
+            } catch (e) { console.warn(e); }
+
             const clean = buildSunatCleanUrl(decodedText) || decodedText;
             if (clean.startsWith(SUNAT_PREFIX)) processUrlFlow(clean);
             else setStatus("QR leído (no SUNAT)", "ok");
+        }
+
+        async function runBatch() {
+            if (busy) return;
+            busy = true;
+            setStatus("Procesando pendientes en Drive...");
+
+            try {
+                const resp = await jsonpCall({ action: "run_batch" });
+                if (resp?.ok) {
+                    setStatus("Proceso Masivo Terminado ✅", "ok");
+                    outEl.innerHTML = `
+                        <b>Resultado:</b><br>
+                        ${resp.message}<br>
+                        ${resp.errors && resp.errors.length ? "<br>Errores:<br>" + resp.errors.join("<br>") : ""}
+                    `;
+                } else {
+                    setStatus("Error en Batch", "err");
+                    outEl.textContent = JSON.stringify(resp, null, 2);
+                }
+            } catch (e) {
+                setStatus("Error Batch", "err");
+                outEl.textContent = String(e);
+            } finally {
+                busy = false;
+            }
         }
 
         async function startScanner() {
@@ -222,17 +275,28 @@
             if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
 
             const config = {
-                fps: 12, qrbox: { width: 260, height: 260 },
+                fps: 12,
+                qrbox: { width: 260, height: 260 },
                 formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
                 experimentalFeatures: { useBarCodeDetectorIfSupported: true }
             };
 
             try {
-                await html5QrCode.start({ facingMode: { exact: "environment" } }, config, onScanSuccess, () => { });
+                await html5QrCode.start(
+                    { facingMode: { exact: "environment" } },
+                    config,
+                    onScanSuccess,
+                    () => { }
+                );
                 setStatus("Cámara trasera activa", "ok");
             } catch (e) {
                 try {
-                    await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, () => { });
+                    await html5QrCode.start(
+                        { facingMode: "environment" },
+                        config,
+                        onScanSuccess,
+                        () => { }
+                    );
                     setStatus("Cámara trasera activa", "ok");
                 } catch (e2) {
                     setStatus("No se pudo iniciar cámara", "err");
@@ -244,15 +308,20 @@
         async function stopScanner() {
             if (!html5QrCode) return;
             try {
+                // Check if scanning using isScanning (if available) or internal state
                 await html5QrCode.stop();
                 await html5QrCode.clear();
                 setStatus("Detenido");
-            } catch (e) { setStatus("No se pudo detener", "err"); }
+            } catch (e) {
+                // Ignore stop errors if already stopped
+                console.warn(e);
+            }
         }
 
         btnStart.addEventListener("click", startScanner);
         btnStop.addEventListener("click", stopScanner);
         btnProcess.addEventListener("click", () => processUrlFlow(urlInput.value.trim()));
+        btnBatch.addEventListener("click", runBatch);
 
         // test rápido de ping
         (async () => {
@@ -263,4 +332,5 @@
         })();
     </script>
 </body>
+
 </html>
