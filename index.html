@@ -1,187 +1,244 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Extractor Guía de Remisión SUNAT</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <style>
-        body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f4; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        h1 { text-align: center; color: #333; font-size: 20px; }
-        textarea { width: 100%; height: 150px; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; resize: none; margin-bottom: 10px; }
-        button { margin: 20px 0; padding: 15px; font-size: 18px; background: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; }
-        button:hover { background: #0056b3; }
-        .download-btn { display: block; text-align: center; padding: 20px; font-size: 20px; background: #28a745; color: white; text-decoration: none; border-radius: 8px; margin: 20px 0; }
-        .download-btn:hover { background: #218838; }
-        .info { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .result { flex-grow: 1; overflow-y: auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { border: 1px solid #ccc; padding: 10px; text-align: left; vertical-align: top; }
-        th { background: #f0f0f0; }
-        .loading { text-align: center; font-size: 18px; color: #007bff; padding: 40px; }
-        .error { color: red; }
-        input[type="file"] { font-size: 16px; padding: 10px; width: 100%; box-sizing: border-box; margin-top: 10px; }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Escáner QR (SUNAT)</title>
+  <style>
+    body { font-family: system-ui, Arial; margin: 16px; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 12px; margin: 12px 0; }
+    #reader { width: min(420px, 100%); margin: 0 auto; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    button, select { padding: 10px 12px; border-radius: 10px; border: 1px solid #ddd; background: #fff; cursor: pointer; }
+    button.primary { border-color: #111; }
+    .muted { color: #666; font-size: 13px; }
+    pre { white-space: pre-wrap; word-break: break-word; margin: 8px 0 0; }
+    .ok { color: #0a7a2f; font-weight: 600; }
+    .err { color: #b00020; font-weight: 600; }
+    .pill { display:inline-block; padding: 4px 8px; border:1px solid #eee; border-radius: 999px; font-size: 12px; }
+  </style>
 </head>
 <body>
-    <h1>Extractor Guía de Remisión SUNAT<br><small>¡Error de ZIP corrupto solucionado!</small></h1>
-    <p>Escanea el QR → presiona "Procesar" (o Enter).<br>
-    <strong>Nuevo proxy especial para archivos ZIP:</strong> Ahora descarga y extrae automáticamente sin corrupción.</p>
-    
-    <textarea id="scanned" placeholder="Texto escaneado aparecerá aquí..." autofocus></textarea>
-    
-    <button onclick="procesar()">Procesar Guía</button>
-    
-    <div id="resultado" class="result"></div>
+  <h2>Escáner QR (cámara)</h2>
+  <p class="muted">
+    Requiere HTTPS. Si no aparece permiso de cámara, revisa permisos del navegador/sistema.
+  </p>
 
-    <script>
-        const textarea = document.getElementById('scanned');
-        const resultado = document.getElementById('resultado');
+  <div class="card">
+    <div class="row">
+      <button id="btnStart" class="primary">Iniciar cámara</button>
+      <button id="btnStop">Detener</button>
+      <span id="status" class="pill">Listo</span>
+    </div>
 
-        textarea.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                procesar();
-            }
+    <div style="height:10px"></div>
+
+    <div class="row">
+      <label class="muted">Cámara:</label>
+      <select id="cameraSelect"></select>
+      <button id="btnReload">Recargar lista</button>
+    </div>
+
+    <div style="height:12px"></div>
+    <div id="reader"></div>
+  </div>
+
+  <div class="card">
+    <b>Resultado</b>
+    <div class="muted">Texto QR:</div>
+    <pre id="raw"></pre>
+
+    <div style="height:10px"></div>
+
+    <div class="muted">URL limpio (si es SUNAT):</div>
+    <pre id="clean"></pre>
+
+    <div class="row" style="margin-top:10px;">
+      <button id="btnCopy">Copiar URL</button>
+      <button id="btnOpen">Abrir URL</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script>
+    const statusEl = document.getElementById("status");
+    const rawEl = document.getElementById("raw");
+    const cleanEl = document.getElementById("clean");
+    const cameraSelect = document.getElementById("cameraSelect");
+
+    const btnStart = document.getElementById("btnStart");
+    const btnStop = document.getElementById("btnStop");
+    const btnReload = document.getElementById("btnReload");
+    const btnCopy = document.getElementById("btnCopy");
+    const btnOpen = document.getElementById("btnOpen");
+
+    let html5QrCode = null;
+    let lastCleanUrl = "";
+
+    function setStatus(text, type="") {
+      statusEl.textContent = text;
+      statusEl.className = "pill " + (type === "ok" ? "ok" : type === "err" ? "err" : "");
+    }
+
+    async function loadCameras() {
+      cameraSelect.innerHTML = "";
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        if (!devices || devices.length === 0) {
+          const opt = document.createElement("option");
+          opt.value = "";
+          opt.textContent = "No se detectaron cámaras";
+          cameraSelect.appendChild(opt);
+          return;
+        }
+        devices.forEach(d => {
+          const opt = document.createElement("option");
+          opt.value = d.id;
+          opt.textContent = d.label || `Camera ${d.id}`;
+          cameraSelect.appendChild(opt);
         });
+      } catch (e) {
+        console.error(e);
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "Error listando cámaras";
+        cameraSelect.appendChild(opt);
+      }
+    }
 
-        async function procesar() {
-            let raw = textarea.value.trim();
-            if (!raw) return alert('Escanea o ingresa el código QR.');
+    function extractHashqr(raw) {
+      if (!raw) return "";
 
-            resultado.innerHTML = '<p class="loading">Limpiando URL y descargando automáticamente...</p>';
+      // Normaliza caracteres raros típicos de pistolas/escáneres
+      let s = String(raw).trim();
+      s = s.replaceAll(" ", "");
+      s = s.replaceAll("¡", "+"); // a veces reemplaza '+'
+      s = s.replaceAll("¿", "?"); // a veces reemplaza '?'
 
-            // Limpieza robusta
-            let cleaned = raw
-                .replace(/Ñ/gi, ':')
-                .replace(/--/g, '//')
-                .replace(/'/g, '-')
-                .replace(/¡/g, '+')
-                .replace(/¿/g, '=')
-                .replace(/_/g, '?');
+      // Busca "hashqr"
+      const lower = s.toLowerCase();
+      const i = lower.indexOf("hashqr");
+      if (i === -1) return "";
 
-            let hashIndex = cleaned.toLowerCase().indexOf('hashqr');
-            let hashRaw = '';
-            if (hashIndex !== -1) {
-                hashRaw = cleaned.substring(hashIndex + 6).trim();
-                hashRaw = hashRaw.replace(/[^A-Za-z0-9+\/=]/g, '');
-            }
+      // Toma lo que viene después de hashqr (con separadores raros)
+      let tail = s.slice(i + "hashqr".length);
 
-            if (hashRaw.length < 80) {
-                resultado.innerHTML = `<div class="info error"><strong>Error al limpiar:</strong> Hash no válido.<br>Texto:<pre>${raw}</pre>Reescanea.</div>`;
-                return;
-            }
+      // quita separadores comunes: ? = : _ -
+      tail = tail.replace(/^[:?=_-]+/g, "");
 
-            let urlLimpia = 'https://e-factura.sunat.gob.pe/v1/contribuyente/gre/comprobantes/descargaqr?hashqr=' + encodeURIComponent(hashRaw);
+      // corta en el primer caracter que NO parezca base64/url
+      const m = tail.match(/^[A-Za-z0-9+\/=_%-]+/);
+      return m ? m[0] : "";
+    }
 
-            // Nuevo proxy especializado en archivos binarios (ZIP) sin corrupción
-            const proxy = 'https://api.allorigins.win/raw?url=';
-            let proxyUrl = proxy + encodeURIComponent(urlLimpia);
+    function buildSunatCleanUrl(raw) {
+      const token = extractHashqr(raw);
+      if (!token) return "";
 
-            try {
-                resultado.innerHTML = '<p class="loading">Descargando ZIP (sin corrupción) y extrayendo datos...<br>(10-40 segundos según conexión)</p>';
+      // URL canónica (la que normalmente te abre el celular)
+      const base = "https://e-factura.sunat.gob.pe/v1/contribuyente/gre/comprobantes/descargaqr?hashqr=";
 
-                let response = await fetch(proxyUrl);
-                if (!response.ok) throw new Error('Error descarga: ' + response.status + ' (posible bloqueo temporal)');
+      // encodeURIComponent para que '+' no se convierta en espacio
+      return base + encodeURIComponent(token);
+    }
 
-                // Verificar que sea un ZIP válido (cabecera PK)
-                let contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('zip') && !contentType.includes('octet-stream')) {
-                    let text = await response.text();
-                    throw new Error('No es un ZIP válido (posible error SUNAT): ' + text.substring(0,200));
-                }
+    function onScanSuccess(decodedText) {
+      rawEl.textContent = decodedText;
 
-                let blob = await response.blob();
-                if (blob.size === 0) throw new Error('Archivo vacío');
+      const clean = buildSunatCleanUrl(decodedText) || decodedText;
+      cleanEl.textContent = clean;
+      lastCleanUrl = clean;
 
-                await extraerDeZip(blob, urlLimpia);
+      setStatus("QR leído", "ok");
 
-            } catch (err) {
-                console.error(err);
-                mostrarFallback(urlLimpia, err.message);
-            }
+      // opcional: detener al primer scan (descomenta si quieres)
+      // stopScanner();
+    }
 
-            textarea.value = '';
-            textarea.focus();
+    async function startScanner() {
+      setStatus("Iniciando cámara...");
+      rawEl.textContent = "";
+      cleanEl.textContent = "";
+      lastCleanUrl = "";
+
+      if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+
+      const camId = cameraSelect.value;
+
+      const config = {
+        fps: 10,
+        qrbox: { width: 260, height: 260 },
+        // intenta usar cámara trasera si el navegador lo soporta
+        // (si eliges camId, se prioriza ese dispositivo)
+        aspectRatio: 1.777
+      };
+
+      try {
+        if (camId) {
+          await html5QrCode.start(
+            { deviceId: { exact: camId } },
+            config,
+            onScanSuccess,
+            () => {}
+          );
+        } else {
+          await html5QrCode.start(
+            { facingMode: "environment" },
+            config,
+            onScanSuccess,
+            () => {}
+          );
         }
+        setStatus("Cámara activa", "ok");
+      } catch (e) {
+        console.error(e);
+        setStatus("No se pudo iniciar cámara (permiso/HTTPS)", "err");
+        // Ayuda rápida en consola
+        console.log("Tip: abre en https, revisa permisos de cámara del navegador/OS.");
+      }
+    }
 
-        function mostrarFallback(urlLimpia, msg = '') {
-            resultado.innerHTML = `
-                <div class="info">
-                    <h2>URL limpiada correctamente</h2>
-                    <p ${msg ? 'style="color:red;"' : ''}><strong>${msg || 'El proxy tuvo problema temporal. Usa descarga manual + subir ZIP (rápido para muchas guías).'}</strong></p>
-                    <a href="${urlLimpia}" class="download-btn" download="guia.zip">Descargar ZIP directo</a>
-                    <p>Después de descargar (aparece abajo), selecciona el archivo aquí:</p>
-                    <input type="file" id="localzip" accept=".zip">
-                    <p><small>En Android: toca la descarga → abre con este navegador → se extrae auto.</small></p>
-                </div>
-            `;
-            document.getElementById('localzip').addEventListener('change', async (e) => {
-                let file = e.target.files[0];
-                if (file) await extraerDeZip(file, urlLimpia);
-            });
+    async function stopScanner() {
+      if (!html5QrCode) return;
+      try {
+        const state = html5QrCode.getState?.();
+        if (state === Html5QrcodeScannerState.SCANNING || state === 2) {
+          await html5QrCode.stop();
+        } else {
+          // si no expone estado, intentamos stop igual
+          await html5QrCode.stop().catch(()=>{});
         }
+        await html5QrCode.clear();
+        setStatus("Detenido");
+      } catch (e) {
+        console.error(e);
+        setStatus("No se pudo detener", "err");
+      }
+    }
 
-        async function extraerDeZip(source, urlLimpia) {
-            try {
-                resultado.innerHTML = '<p class="loading">Extrayendo datos del XML...</p>';
-                let zip = await JSZip.loadAsync(source);
-                let xmlFile = Object.keys(zip.files).find(f => f.toLowerCase().endsWith('.xml') && !zip.files[f].dir);
-                if (!xmlFile) throw new Error('No se encontró XML en el ZIP');
+    btnStart.addEventListener("click", startScanner);
+    btnStop.addEventListener("click", stopScanner);
+    btnReload.addEventListener("click", loadCameras);
 
-                let xmlStr = await zip.file(xmlFile).async('text');
-                let parser = new DOMParser();
-                let xmlDoc = parser.parseFromString(xmlStr, 'application/xml');
+    btnCopy.addEventListener("click", async () => {
+      const text = lastCleanUrl || cleanEl.textContent || rawEl.textContent;
+      if (!text) return alert("No hay nada para copiar.");
+      try {
+        await navigator.clipboard.writeText(text);
+        alert("Copiado ✅");
+      } catch {
+        alert("No se pudo copiar (permiso portapapeles).");
+      }
+    });
 
-                const ns = p => ({ cac: 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2',
-                                   cbc: 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2' }[p] || null);
+    btnOpen.addEventListener("click", () => {
+      const url = lastCleanUrl || cleanEl.textContent || rawEl.textContent;
+      if (!url) return alert("No hay URL para abrir.");
+      window.open(url, "_blank", "noopener,noreferrer");
+    });
 
-                const xpath = (q, ctx = xmlDoc, type = XPathResult.STRING_TYPE) => xmlDoc.evaluate(q, ctx, ns, type, null);
-
-                let empresa = xpath('//cac:DespatchSupplierParty//cac:PartyLegalEntity/cbc:RegistrationName || //cac:DespatchSupplierParty//cac:PartyName/cbc:Name').stringValue.trim();
-                let ruc = xpath('//cac:DespatchSupplierParty//cac:PartyIdentification/cbc:ID[@schemeID="6"]').stringValue.trim();
-
-                let modalidadCode = xpath('//cac:ShipmentStage/cbc:TransportModeCode').stringValue.trim();
-                let modalidad = modalidadCode === '01' ? 'Privado' : (modalidadCode === '02' ? 'Público' : 'Otro');
-
-                let placa = xpath('//cac:RoadTransport/cbc:LicensePlateID').stringValue.trim().toUpperCase();
-                let conductorDni = xpath('//cac:DriverPerson/cbc:ID').stringValue.trim();
-                let transportista = xpath('//cac:CarrierParty//cbc:RegistrationName || //cac:CarrierParty//cbc:Name').stringValue.trim();
-
-                let lines = xpath('//cac:DespatchLine', null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE);
-                let tabla = `<table><thead><tr><th>Ítem</th><th>Cantidad</th><th>Unidad</th><th>Descripción detallada</th></tr></thead><tbody>`;
-                for (let i = 0; i < lines.snapshotLength; i++) {
-                    let line = lines.snapshotItem(i);
-                    let item = xpath('cbc:ID', line).stringValue.trim() || (i+1);
-                    let cant = xpath('cbc:DeliveredQuantity', line).stringValue.trim();
-                    let unidad = xpath('cbc:DeliveredQuantity/@unitCode', line).stringValue.trim();
-                    let descs = xpath('cac:Item/cbc:Description', line, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE);
-                    let desc = '';
-                    for (let j = 0; j < descs.snapshotLength; j++) {
-                        if (j > 0) desc += '<br>';
-                        desc += descs.snapshotItem(j).textContent.trim();
-                    }
-                    tabla += `<tr><td>${item}</td><td>${cant}</td><td>${unidad}</td><td>${desc || 'Sin descripción'}</td></tr>`;
-                }
-                tabla += `</tbody></table>`;
-                if (lines.snapshotLength === 0) tabla = '<p>No hay ítems.</p>';
-
-                resultado.innerHTML = `
-                    <div class="info">
-                        <h2>¡Datos extraídos automáticamente!</h2>
-                        <p><strong>Empresa:</strong> ${empresa || 'No encontrado'} ${ruc ? `(RUC: ${ruc})` : ''}</p>
-                        <p><strong>Modalidad:</strong> ${modalidad}</p>
-                        ${modalidadCode === '01' ? `<p><strong>Placa:</strong> ${placa || 'No encontrada'}</p>${conductorDni ? `<p><strong>DNI Conductor:</strong> ${conductorDni}</p>` : ''}` : `<p><strong>Transportista:</strong> ${transportista || 'No encontrado'}</p>`}
-                        <h3>Bienes trasladados:</h3>
-                        ${tabla}
-                        <a href="${urlLimpia}" class="download-btn" download="guia.zip">Descargar ZIP completo (opcional)</a>
-                    </div>
-                `;
-            } catch (err) {
-                resultado.innerHTML = `<div class="info error"><strong>Error al extraer ZIP:</strong> ${err.message}<br>Posible ZIP corrupto o inválido.</div>
-                    <a href="${urlLimpia}" class="download-btn">Intentar descarga manual</a>`;
-            }
-        }
-    </script>
+    // Inicial
+    loadCameras();
+  </script>
 </body>
 </html>
