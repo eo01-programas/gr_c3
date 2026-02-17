@@ -161,7 +161,7 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script>
         const DEFAULT_APPS_SCRIPT_WEBAPP_URL =
-            "https://script.google.com/macros/s/AKfycbxfqLTgWDCAssI-_J5tM1dPuzrAOdzlyaIKn9RCsPWkicZcAPyuImGXJJng-dZ8cHls/exec";
+            "https://script.google.com/macros/s/AKfycbxwERxeY8sd-1KODOf0kMie7ueurTlsAKy99lGBXnE7NTcXX9fgW3RLc5_8v6eu_oNX/exec";
         const WEBAPP_STORAGE_KEY = "gre_webapp_url";
         let APPS_SCRIPT_WEBAPP_URL = DEFAULT_APPS_SCRIPT_WEBAPP_URL;
 
@@ -253,6 +253,7 @@
 
                 const script = document.createElement("script");
                 let timer = null;
+                let startTime = Date.now();
 
                 currentRequest = { cb, cancel: () => { cleanup(); reject(new Error("Cancelado por usuario")); } };
 
@@ -272,8 +273,8 @@
 
                 timer = setTimeout(() => {
                     cleanup();
-                    reject(new Error("⏱️ Timeout (>3 min). API no responde. Verifica que code.gs esté deployed."));
-                }, timeoutMs);
+                    reject(new Error("⏱️ Timeout. API no responde después de " + Math.round((Date.now() - startTime) / 1000) + "s. Verifica que code.gs esté deployed."));
+                }, Math.min(timeoutMs, 120000));
 
                 console.log("📡 Llamando API:", url);
                 script.src = url;
@@ -293,7 +294,7 @@
             lastUrlEl.textContent = sunatUrl;
 
             try {
-                const resp = await jsonpCall({ action: "process", url: sunatUrl }, 180000);
+                const resp = await jsonpCall({ action: "process", url: sunatUrl }, 120000);
                 if (!resp?.ok) {
                     throw new Error(resp?.error || "Respuesta inválida de API");
                 }
@@ -394,12 +395,21 @@
             const file = fileInput.files[0];
 
             if (busy) return;
-            toggleBusy(true, "Comprimiendo imagen...");
+            
+            // OPTIMIZACION: Validar tamaño de archivo antes de procesar
+            const maxSizeMB = 15;
+            if (file.size > maxSizeMB * 1024 * 1024) {
+                setStatus("Imagen muy grande", "err");
+                outEl.textContent = `Error: La imagen supera ${maxSizeMB}MB`;
+                return;
+            }
+            
+            toggleBusy(true, "📦 Comprimiendo imagen...");
             setStatus("Comprimiendo imagen...");
 
             try {
                 const base64 = await resizeAndToBase64(file);
-                toggleBusy(true, "Subiendo y OCR...");
+                toggleBusy(true, "📤 Subiendo y OCR...");
                 setStatus("Subiendo y OCR...");
 
                 const resp = await postCall({
@@ -434,7 +444,7 @@
             return json;
         }
 
-        function resizeAndToBase64(file, maxWidth = 1000) {
+        function resizeAndToBase64(file, maxWidth = 800, quality = 0.6) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
@@ -456,7 +466,7 @@
                         const ctx = canvas.getContext("2d");
                         ctx.drawImage(img, 0, 0, width, height);
 
-                        const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+                        const dataUrl = canvas.toDataURL("image/jpeg", quality);
                         const base64 = dataUrl.split(",")[1];
                         resolve(base64);
                     };
