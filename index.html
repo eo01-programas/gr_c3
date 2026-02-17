@@ -1,314 +1,290 @@
 <!doctype html>
 <html lang="es">
+
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>GRE SUNAT | Escaneo masivo</title>
-  <style>
-    body { font-family: system-ui, Arial; margin: 16px; }
-    .card { border: 1px solid #ddd; border-radius: 12px; padding: 12px; margin: 12px 0; }
-    #reader { width: min(420px, 100%); margin: 0 auto; }
-    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    button, input { padding: 10px 12px; border-radius: 10px; border: 1px solid #ddd; background: #fff; }
-    button { cursor: pointer; }
-    button.primary { border-color: #111; }
-    .muted { color: #666; font-size: 13px; }
-    .pill { display:inline-block; padding: 4px 8px; border:1px solid #eee; border-radius: 999px; font-size: 12px; }
-    .ok { color: #0a7a2f; font-weight: 700; }
-    .err { color: #b00020; font-weight: 700; }
-    pre { white-space: pre-wrap; word-break: break-word; margin: 8px 0 0; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; vertical-align: top; }
-    th { background: #fafafa; width: 38%; }
-    a { word-break: break-word; }
-    .small { font-size: 12px; }
-    .hint { margin-top: 6px; }
-  </style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GRE SUNAT | Escaneo masivo</title>
+    <style>
+        body {
+            font-family: system-ui, Arial;
+            margin: 16px;
+        }
+
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 12px;
+            margin: 12px 0;
+        }
+
+        #reader {
+            width: min(420px, 100%);
+            margin: 0 auto;
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        button,
+        input {
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+            background: #fff;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        button.primary {
+            border-color: #111;
+        }
+
+        .muted {
+            color: #666;
+            font-size: 13px;
+        }
+
+        .pill {
+            display: inline-block;
+            padding: 4px 8px;
+            border: 1px solid #eee;
+            border-radius: 999px;
+            font-size: 12px;
+        }
+
+        .ok {
+            color: #0a7a2f;
+            font-weight: 700;
+        }
+
+        .err {
+            color: #b00020;
+            font-weight: 700;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin: 8px 0 0;
+        }
+    </style>
 </head>
+
 <body>
-  <h2>GRE SUNAT | Escaneo masivo</h2>
-  <div class="muted hint">
-    Abre en Chrome (no dentro de WhatsApp/Instagram). Permite cámara.
-  </div>
+    <h2>GRE SUNAT | Escaneo masivo</h2>
 
-  <div class="card">
-    <div class="row">
-      <button id="btnStart" class="primary">Iniciar cámara trasera</button>
-      <button id="btnStop">Detener</button>
-      <span id="status" class="pill">Listo</span>
+    <div class="card">
+        <div class="row">
+            <button id="btnStart" class="primary">Iniciar cámara trasera</button>
+            <button id="btnStop">Detener</button>
+            <span id="status" class="pill">Listo</span>
+        </div>
+
+        <div style="height:12px"></div>
+        <div id="reader"></div>
+
+        <div style="height:12px"></div>
+        <div class="muted">O pega el URL:</div>
+        <div class="row">
+            <input id="urlInput" style="flex:1; min-width: 240px;"
+                placeholder="https://e-factura.sunat.gob.pe/...hashqr=..." />
+            <button id="btnProcess">Procesar URL</button>
+        </div>
+
+        <div class="muted" style="margin-top:10px;">Último URL:</div>
+        <pre id="lastUrl"></pre>
     </div>
 
-    <div style="height:12px"></div>
-    <div id="reader"></div>
-
-    <div style="height:12px"></div>
-    <div class="muted">O pega el URL (prueba manual):</div>
-    <div class="row">
-      <input id="urlInput" style="flex:1; min-width: 240px;"
-             placeholder="https://e-factura.sunat.gob.pe/...hashqr=..." />
-      <button id="btnProcess">Procesar URL</button>
+    <div class="card">
+        <b>Respuesta</b>
+        <pre id="out" class="muted">Aún no hay datos.</pre>
     </div>
 
-    <div class="muted" style="margin-top:10px;">Último URL:</div>
-    <pre id="lastUrl"></pre>
-  </div>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script>
+        const APPS_SCRIPT_WEBAPP_URL =
+            "https://script.google.com/macros/s/AKfycbyInP1s6mLFb107F8jC_2YBoMODaPAxSL1XQzuPsGURRUc5Xg1q8FjTSwcwTMB1WU5B/exec";
 
-  <div class="card">
-    <b>Resultado</b>
-    <div id="out" class="muted">Aún no hay datos.</div>
-  </div>
+        const SUNAT_PREFIX =
+            "https://e-factura.sunat.gob.pe/v1/contribuyente/gre/comprobantes/descargaqr?hashqr=";
 
-  <script src="https://unpkg.com/html5-qrcode"></script>
-  <script>
-    /************ CONFIG ************/
-    const APPS_SCRIPT_WEBAPP_URL =
-      "https://script.google.com/macros/s/AKfycbzZapqZ7bAI6buMldsSK1SEaPKbA_TnoXyO5T_GlkMU_HejMTN-7DC_RqCgIUHq0nGD/exec";
+        const btnStart = document.getElementById("btnStart");
+        const btnStop = document.getElementById("btnStop");
+        const btnProcess = document.getElementById("btnProcess");
+        const urlInput = document.getElementById("urlInput");
+        const statusEl = document.getElementById("status");
+        const lastUrlEl = document.getElementById("lastUrl");
+        const outEl = document.getElementById("out");
 
-    const SUNAT_PREFIX =
-      "https://e-factura.sunat.gob.pe/v1/contribuyente/gre/comprobantes/descargaqr?hashqr=";
+        let html5QrCode = null;
+        let busy = false;
 
-    // 6 min por si el server tarda
-    const TIMEOUT_MS = 360000;
-    const COOLDOWN_MS = 1200;
-
-    /************ UI ************/
-    const btnStart = document.getElementById("btnStart");
-    const btnStop  = document.getElementById("btnStop");
-    const btnProcess = document.getElementById("btnProcess");
-    const urlInput = document.getElementById("urlInput");
-
-    const statusEl = document.getElementById("status");
-    const lastUrlEl = document.getElementById("lastUrl");
-    const outEl = document.getElementById("out");
-
-    let html5QrCode = null;
-    let busy = false;
-    let cooldownUntil = 0;
-
-    function setStatus(text, type="") {
-      statusEl.textContent = text;
-      statusEl.className = "pill " + (type === "ok" ? "ok" : type === "err" ? "err" : "");
-    }
-
-    function esc(s) {
-      return String(s ?? "")
-        .replaceAll("&","&amp;")
-        .replaceAll("<","&lt;")
-        .replaceAll(">","&gt;")
-        .replaceAll('"',"&quot;")
-        .replaceAll("'","&#039;");
-    }
-
-    /************ JSONP ************/
-    function jsonpCall(params, timeoutMs = TIMEOUT_MS) {
-      return new Promise((resolve, reject) => {
-        const cb = "cb_" + Date.now() + "_" + Math.random().toString(16).slice(2);
-        const qs = new URLSearchParams({ ...params, callback: cb }).toString();
-        const url = `${APPS_SCRIPT_WEBAPP_URL}?${qs}`;
-
-        const script = document.createElement("script");
-        let timer = null;
-
-        window[cb] = (data) => { cleanup(); resolve(data); };
-
-        script.onerror = () => {
-          cleanup();
-          reject(new Error("JSONP no cargó. URL: " + url));
-        };
-
-        function cleanup() {
-          if (timer) clearTimeout(timer);
-          try { delete window[cb]; } catch {}
-          if (script.parentNode) script.parentNode.removeChild(script);
+        function setStatus(text, type = "") {
+            statusEl.textContent = text;
+            statusEl.className = "pill " + (type === "ok" ? "ok" : type === "err" ? "err" : "");
         }
 
-        timer = setTimeout(() => {
-          cleanup();
-          reject(new Error("Timeout JSONP: " + url));
-        }, timeoutMs);
-
-        script.src = url;
-        document.body.appendChild(script);
-      });
-    }
-
-    /************ QR clean ************/
-    function extractHashqr(raw) {
-      if (!raw) return "";
-      let s = String(raw).trim();
-      s = s.replaceAll(" ", "");
-      s = s.replaceAll("¡", "+");
-      s = s.replaceAll("¿", "?");
-
-      const i = s.toLowerCase().indexOf("hashqr");
-      if (i === -1) return "";
-
-      let tail = s.slice(i + "hashqr".length);
-      tail = tail.replace(/^[:?=_-]+/g, "");
-      const m = tail.match(/^[A-Za-z0-9+\/=_%-]+/);
-      return m ? m[0] : "";
-    }
-
-    function buildSunatCleanUrl(raw) {
-      const token = extractHashqr(raw);
-      if (!token) return "";
-      return SUNAT_PREFIX + encodeURIComponent(token);
-    }
-
-    /************ Render ************/
-    function renderResult(resp) {
-      const d = resp?.data || {};
-      const fileUrl = resp?.fileUrl || "";
-      const downloadUrl = resp?.downloadUrl || "";
-      const filename = resp?.filename || "";
-      const status = resp?.status || "";
-
-      const rows = [
-        ["Estado", status],
-        ["FECHA", d.FECHA],
-        ["N_SERIE", d.N_SERIE],
-        ["N_DOCUMENTO", d.N_DOCUMENTO],
-        ["EMPRESA", d.EMPRESA],
-        ["RUC", d.RUC],
-        ["DESCRIPCION", d.DESCRIPCION],
-        ["OP", d.OP],
-        ["UNIDAD_MEDIDA", d.UNIDAD_MEDIDA],
-        ["CANTIDAD", d.CANTIDAD],
-        ["ARCHIVO (Drive)", filename],
-        ["URL (Drive)", fileUrl ? `<a href="${esc(fileUrl)}" target="_blank" rel="noopener">Ver PDF</a><div class="muted small">${esc(fileUrl)}</div>` : ""],
-        ["Descarga directa", downloadUrl ? `<a href="${esc(downloadUrl)}" target="_blank" rel="noopener">Descargar</a><div class="muted small">${esc(downloadUrl)}</div>` : ""],
-      ];
-
-      outEl.innerHTML = `
-        <table><tbody>
-          ${rows.map(([k,v]) => `
-            <tr>
-              <th>${esc(k)}</th>
-              <td>${(k.startsWith("URL") || k.startsWith("Descarga") || k.startsWith("ARCHIVO"))
-                ? (v || "")
-                : `<pre>${esc(v || "")}</pre>`}
-              </td>
-            </tr>
-          `).join("")}
-        </tbody></table>
-      `;
-    }
-
-    /************ Process ************/
-    async function processUrlFlow(sunatUrl) {
-      if (busy) return;
-
-      if (!sunatUrl || !sunatUrl.startsWith(SUNAT_PREFIX)) {
-        setStatus("URL no válida SUNAT", "err");
-        return;
-      }
-
-      busy = true;
-      setStatus("Procesando (SUNAT → Drive → Sheets)…");
-      lastUrlEl.textContent = sunatUrl;
-
-      try {
-        const resp = await jsonpCall({ action: "process", url: sunatUrl }, TIMEOUT_MS);
-
-        if (!resp || !resp.ok) {
-          setStatus("Error API", "err");
-          outEl.textContent = JSON.stringify(resp, null, 2);
-        } else if (resp.status === "duplicate") {
-          setStatus("Duplicado (omitido) ✅", "ok");
-          outEl.innerHTML = `<div class="ok">Duplicado (omitido) ✅</div>`;
-        } else {
-          setStatus("Procesado ✅", "ok");
-          renderResult(resp);
+        function extractHashqr(raw) {
+            if (!raw) return "";
+            let s = String(raw).trim().replaceAll(" ", "").replaceAll("¡", "+").replaceAll("¿", "?");
+            const i = s.toLowerCase().indexOf("hashqr");
+            if (i === -1) return "";
+            let tail = s.slice(i + "hashqr".length).replace(/^[:?=_-]+/g, "");
+            const m = tail.match(/^[A-Za-z0-9+\/=_%-]+/);
+            return m ? m[0] : "";
         }
 
-        if (navigator.vibrate) navigator.vibrate(50);
-      } catch (e) {
-        console.error(e);
-        setStatus("Error", "err");
-        outEl.textContent = (e && e.message) ? e.message : String(e);
-      } finally {
-        cooldownUntil = Date.now() + COOLDOWN_MS;
-        busy = false;
-      }
-    }
-
-    function onScanSuccess(decodedText) {
-      const now = Date.now();
-      if (busy || now < cooldownUntil) return;
-
-      const clean = buildSunatCleanUrl(decodedText) || decodedText;
-
-      if (!clean.startsWith(SUNAT_PREFIX)) {
-        setStatus("QR leído (no SUNAT)", "ok");
-        cooldownUntil = now + COOLDOWN_MS;
-        return;
-      }
-
-      processUrlFlow(clean);
-    }
-
-    /************ Camera (trasera + solo QR) ************/
-    async function startScanner() {
-      setStatus("Iniciando cámara…");
-      if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
-
-      const config = {
-        fps: 12,
-        qrbox: { width: 260, height: 260 },
-        formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ],
-        experimentalFeatures: { useBarCodeDetectorIfSupported: true }
-      };
-
-      try {
-        await html5QrCode.start(
-          { facingMode: { exact: "environment" } },
-          config,
-          onScanSuccess,
-          () => {}
-        );
-        setStatus("Cámara trasera activa", "ok");
-      } catch (e) {
-        console.warn("fallback env:", e);
-        try {
-          await html5QrCode.start(
-            { facingMode: "environment" },
-            config,
-            onScanSuccess,
-            () => {}
-          );
-          setStatus("Cámara trasera activa", "ok");
-        } catch (e2) {
-          console.error(e2);
-          setStatus("No se pudo iniciar cámara", "err");
-          outEl.textContent = String(e2);
+        function buildSunatCleanUrl(raw) {
+            const token = extractHashqr(raw);
+            if (!token) return "";
+            return SUNAT_PREFIX + encodeURIComponent(token);
         }
-      }
-    }
 
-    async function stopScanner() {
-      if (!html5QrCode) return;
-      try {
-        await html5QrCode.stop();
-        await html5QrCode.clear();
-        setStatus("Detenido");
-      } catch (e) {
-        setStatus("No se pudo detener", "err");
-      }
-    }
+        function jsonpCall(params, timeoutMs = 120000) {
+            return new Promise((resolve, reject) => {
+                const cb = "cb_" + Date.now() + "_" + Math.random().toString(16).slice(2);
+                const qs = new URLSearchParams({ ...params, callback: cb }).toString();
+                const url = `${APPS_SCRIPT_WEBAPP_URL}?${qs}`;
 
-    btnStart.addEventListener("click", startScanner);
-    btnStop.addEventListener("click", stopScanner);
-    btnProcess.addEventListener("click", () => processUrlFlow(urlInput.value.trim()));
+                const script = document.createElement("script");
+                let timer = null;
 
-    // Ping inicial (muestra API OK si responde)
-    (async () => {
-      try {
-        const r = await jsonpCall({ action: "ping" }, 20000);
-        if (r?.ok) setStatus("API OK ✅", "ok");
-      } catch (e) {
-        // no molestamos si falla el ping
-      }
-    })();
-  </script>
+                window[cb] = (data) => { cleanup(); resolve(data); };
+
+                script.onerror = () => {
+                    cleanup();
+                    reject(new Error("JSONP no cargó. URL: " + url));
+                };
+
+                function cleanup() {
+                    if (timer) clearTimeout(timer);
+                    try { delete window[cb]; } catch { }
+                    if (script.parentNode) script.parentNode.removeChild(script);
+                }
+
+                timer = setTimeout(() => {
+                    cleanup();
+                    reject(new Error("Timeout en API. URL: " + url));
+                }, timeoutMs);
+
+                script.src = url;
+                document.body.appendChild(script);
+            });
+        }
+
+        async function processUrlFlow(sunatUrl) {
+            if (busy) return;
+            if (!sunatUrl.startsWith(SUNAT_PREFIX)) {
+                setStatus("URL no válida SUNAT", "err");
+                return;
+            }
+
+            busy = true;
+            setStatus("Guardando y leyendo guía...");
+            lastUrlEl.textContent = sunatUrl;
+
+            try {
+                const resp = await jsonpCall({ action: "process", url: sunatUrl });
+                if (resp?.ok) {
+                    setStatus("Guardado ✅", "ok");
+                    // Mostrar tabla simple con NRO GUIA y LINK
+                    outEl.innerHTML = `
+                        <table style="width:100%; border-collapse:collapse; margin-top:10px;">
+                            <tr style="border-bottom:1px solid #eee;">
+                                <th style="text-align:left; padding:8px; background:#f9f9f9;">N° GUÍA</th>
+                                <td style="padding:8px; font-weight:bold;">${resp.guia || "No detectado"}</td>
+                            </tr>
+                            <tr>
+                                <th style="text-align:left; padding:8px; background:#f9f9f9;">PDF</th>
+                                <td style="padding:8px;">
+                                    <a href="${resp.fileUrl}" target="_blank">Ver archivo</a>
+                                </td>
+                            </tr>
+                        </table>
+                    `;
+                } else {
+                    setStatus("Error API", "err");
+                    outEl.textContent = JSON.stringify(resp, null, 2);
+                }
+            } catch (e) {
+                setStatus("Error JSONP", "err");
+                outEl.textContent = (e && e.message) ? e.message : String(e);
+            } finally {
+                busy = false;
+            }
+        }
+
+        function onScanSuccess(decodedText) {
+            const clean = buildSunatCleanUrl(decodedText) || decodedText;
+            if (clean.startsWith(SUNAT_PREFIX)) processUrlFlow(clean);
+            else setStatus("QR leído (no SUNAT)", "ok");
+        }
+
+        async function startScanner() {
+            setStatus("Iniciando cámara…");
+            if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+
+            const config = {
+                fps: 12,
+                qrbox: { width: 260, height: 260 },
+                formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+                experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+            };
+
+            try {
+                await html5QrCode.start(
+                    { facingMode: { exact: "environment" } },
+                    config,
+                    onScanSuccess,
+                    () => { }
+                );
+                setStatus("Cámara trasera activa", "ok");
+            } catch (e) {
+                try {
+                    await html5QrCode.start(
+                        { facingMode: "environment" },
+                        config,
+                        onScanSuccess,
+                        () => { }
+                    );
+                    setStatus("Cámara trasera activa", "ok");
+                } catch (e2) {
+                    setStatus("No se pudo iniciar cámara", "err");
+                    outEl.textContent = String(e2);
+                }
+            }
+        }
+
+        async function stopScanner() {
+            if (!html5QrCode) return;
+            try {
+                await html5QrCode.stop();
+                await html5QrCode.clear();
+                setStatus("Detenido");
+            } catch (e) {
+                setStatus("No se pudo detener", "err");
+            }
+        }
+
+        btnStart.addEventListener("click", startScanner);
+        btnStop.addEventListener("click", stopScanner);
+        btnProcess.addEventListener("click", () => processUrlFlow(urlInput.value.trim()));
+
+        // test rápido de ping
+        (async () => {
+            try {
+                const r = await jsonpCall({ action: "ping" }, 20000);
+                if (r?.ok) setStatus("API OK ✅", "ok");
+            } catch { }
+        })();
+    </script>
 </body>
+
 </html>
