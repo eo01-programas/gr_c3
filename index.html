@@ -110,7 +110,7 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script>
         const APPS_SCRIPT_WEBAPP_URL =
-            "https://script.google.com/macros/s/AKfycbx6ML2hMbfysWFx16x4K0R60G5bZ_Sfk5o8zeW0jbiXQ5Y2KU9mreJ2dDOwskwVYHGA/exec";
+            "https://script.google.com/macros/s/AKfycbwZx4rnJgAALxDds5ELI35nDJTLo2auq0X-zAW42f53WcDr8rwD4HVhLyiwf9PeCsFX/exec";
 
         const SUNAT_PREFIX =
             "https://e-factura.sunat.gob.pe/v1/contribuyente/gre/comprobantes/descargaqr?hashqr=";
@@ -187,14 +187,22 @@
             }
 
             busy = true;
-            setStatus("Procesando (SUNAT → Drive → bd)…");
+            setStatus("Guardando en Drive…");
             lastUrlEl.textContent = sunatUrl;
 
             try {
                 const resp = await jsonpCall({ action: "process", url: sunatUrl });
-                outEl.textContent = JSON.stringify(resp, null, 2);
-                if (resp?.ok) setStatus("Procesado ✅", "ok");
-                else setStatus("Error API", "err");
+                if (resp?.ok) {
+                    setStatus("Guardado ✅", "ok");
+                    outEl.innerHTML = `
+                        <b>Archivo guardado:</b><br>
+                        <a href="${resp.fileUrl}" target="_blank">${resp.filename}</a><br><br>
+                        <a href="${resp.downloadUrl}" target="_blank">Descarga directa</a>
+                    `;
+                } else {
+                    setStatus("Error API", "err");
+                    outEl.textContent = JSON.stringify(resp, null, 2);
+                }
             } catch (e) {
                 setStatus("Error JSONP", "err");
                 outEl.textContent = (e && e.message) ? e.message : String(e);
