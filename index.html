@@ -155,12 +155,13 @@
     <div id="loadingModal" class="modal-overlay">
         <div class="spinner"></div>
         <p style="margin-top:16px; font-weight:bold; color:#333;">Procesando...</p>
+        <button id="btnCancel" style="margin-top:16px; padding:8px 16px; background:#b00020; color:white; border:none; border-radius:6px; cursor:pointer;">❌ Cancelar</button>
     </div>
 
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script>
         const DEFAULT_APPS_SCRIPT_WEBAPP_URL =
-            "https://script.google.com/macros/s/AKfycbxpMmYoR-IgktYvEhfJmWuueBYtMqiaNPR3WUPmoS-R8IBUGNvt5w8JcxEq4Q8FrOmt/exec";
+            "https://script.google.com/macros/s/AKfycbxfqLTgWDCAssI-_J5tM1dPuzrAOdzlyaIKn9RCsPWkicZcAPyuImGXJJng-dZ8cHls/exec";
         const WEBAPP_STORAGE_KEY = "gre_webapp_url";
         let APPS_SCRIPT_WEBAPP_URL = DEFAULT_APPS_SCRIPT_WEBAPP_URL;
 
@@ -238,7 +239,9 @@
             return SUNAT_PREFIX + encodeURIComponent(token);
         }
 
-        function jsonpCall(params, timeoutMs = 120000) {
+        let currentRequest = null;
+
+        function jsonpCall(params, timeoutMs = 180000) {
             return new Promise((resolve, reject) => {
                 if (!APPS_SCRIPT_WEBAPP_URL) {
                     reject(new Error("API no configurada"));
@@ -251,24 +254,28 @@
                 const script = document.createElement("script");
                 let timer = null;
 
+                currentRequest = { cb, cancel: () => { cleanup(); reject(new Error("Cancelado por usuario")); } };
+
                 window[cb] = (data) => { cleanup(); resolve(data); };
 
                 script.onerror = () => {
                     cleanup();
-                    reject(new Error("JSONP no cargo. URL: " + url));
+                    reject(new Error("JSONP no cargo. Verifica que la URL sea correcta."));
                 };
 
                 function cleanup() {
                     if (timer) clearTimeout(timer);
                     try { delete window[cb]; } catch { }
                     if (script.parentNode) script.parentNode.removeChild(script);
+                    currentRequest = null;
                 }
 
                 timer = setTimeout(() => {
                     cleanup();
-                    reject(new Error("Timeout en API. URL: " + url));
+                    reject(new Error("⏱️ Timeout (>3 min). API no responde. Verifica que code.gs esté deployed."));
                 }, timeoutMs);
 
+                console.log("📡 Llamando API:", url);
                 script.src = url;
                 document.body.appendChild(script);
             });
@@ -281,16 +288,22 @@
                 return;
             }
 
-            toggleBusy(true, "Procesando código QR...");
-            setStatus("Procesando completo...");
+            toggleBusy(true, "⬇️ Descargando PDF SUNAT...");
+            setStatus("Descargando...");
             lastUrlEl.textContent = sunatUrl;
 
             try {
-                const resp = await jsonpCall({ action: "process", url: sunatUrl });
+                const resp = await jsonpCall({ action: "process", url: sunatUrl }, 180000);
+                if (!resp?.ok) {
+                    throw new Error(resp?.error || "Respuesta inválida de API");
+                }
+                toggleBusy(true, "📝 Extrayendo datos...");
                 renderResponse(resp);
             } catch (e) {
-                setStatus("Error JSONP", "err");
-                outEl.textContent = (e && e.message) ? e.message : String(e);
+                setStatus("Error", "err");
+                const msg = (e && e.message) ? e.message : String(e);
+                outEl.innerHTML = `<b>Error:</b><br>${msg}<br><br><button onclick="location.reload()">Reiniciar</button>`;
+                console.error("Error en processUrlFlow:", e);
             } finally {
                 toggleBusy(false);
             }
@@ -361,6 +374,16 @@
 
         btnStart.addEventListener("click", startScanner);
         btnStop.addEventListener("click", stopScanner);
+
+        // Botón cancelar en modal
+        document.getElementById("btnCancel").addEventListener("click", () => {
+            if (currentRequest) {
+                currentRequest.cancel();
+            } else {
+                toggleBusy(false);
+                setStatus("Cancelado", "err");
+            }
+        });
 
 
         // === MANUAL PHOTO LOGIC ===
@@ -520,9 +543,14 @@
         // test rápido de ping
         (async () => {
             try {
+                console.log("🔗 API URL:", APPS_SCRIPT_WEBAPP_URL);
                 const r = await jsonpCall({ action: "ping" }, 20000);
                 if (r?.ok) setStatus("API OK ✓", "ok");
-            } catch { }
+                else setStatus("API falla", "err");
+            } catch (e) {
+                console.error("❌ API offline:", e.message);
+                setStatus("API offline", "err");
+            }
         })();
     </script>
 </body>
