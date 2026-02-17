@@ -27,7 +27,7 @@
 <body>
   <h2>GRE SUNAT | Escaneo masivo</h2>
   <p class="muted">
-    Escaneas QR → Apps Script descarga y guarda el PDF en Drive (<b>guias_c3</b>) → extrae datos → escribe en hoja <b>bd</b> → <b>Procesado ✅</b>.
+    Si la cámara no abre: abre este link en <b>Chrome/Safari</b> (no dentro de WhatsApp/IG) y permite cámara.
   </p>
 
   <div class="card">
@@ -136,7 +136,6 @@
       return m ? (m[1] || m[0]).trim() : "";
     }
 
-    // Parseo específico para GRE SUNAT
     function parseGreText(t) {
       const ruc = pick(/RUC\s*N[°º]?\s*([0-9]{11})/i, t);
 
@@ -161,11 +160,10 @@
 
       let cantidad = "";
       let um = "";
-      // patrón frecuente: "1 NO 01 UNIDAD (NIU) 1.00"
       const q = t.match(/(\d+)\s+NO\s+\d{2}\s+([A-ZÁÉÍÓÚÑ]+)\s*\(NIU\)/i);
       if (q) {
         cantidad = q[1];
-        um = q[2]; // UNIDAD
+        um = q[2];
       } else {
         cantidad = pick(/\bCantidad\b\s*:\s*(\d+)/i, t);
         um = pick(/\b([A-ZÁÉÍÓÚÑ]+)\s*\(NIU\)/i, t);
@@ -184,7 +182,6 @@
     }
 
     function renderResult(obj, r2) {
-      // r2 viene del servidor: {status, filename, viewUrl, downloadUrl}
       const downloadUrl = r2?.downloadUrl || "";
       const viewUrl = r2?.viewUrl || "";
       const filename = r2?.filename || "";
@@ -210,8 +207,8 @@
             <tr>
               <th>${esc(k)}</th>
               <td>${(k.startsWith("URL") || k.startsWith("ARCHIVO"))
-                    ? (v || "")
-                    : `<pre>${esc(v || "")}</pre>`}
+                ? (v || "")
+                : `<pre>${esc(v || "")}</pre>`}
               </td>
             </tr>
           `).join("")}
@@ -234,7 +231,6 @@
       google.script.run
         .withSuccessHandler(async (res) => {
           try {
-            // res: {fileId, b64}
             setStatus("Extrayendo contenido del PDF…");
             const buf = b64ToArrayBuffer(res.b64);
             const text = await extractTextFromPdf(buf);
@@ -294,6 +290,24 @@
       processUrlFlow(sunatUrl);
     }
 
+    // ==== CÁMARA TRASERA: selección robusta por deviceId ====
+    async function pickBackCameraDeviceId() {
+      // Pedimos permiso una vez para poder leer labels (en iOS/Android)
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        stream.getTracks().forEach(t => t.stop());
+      } catch (e) {
+        // si no da permiso, igual seguimos; la librería mostrará error
+      }
+
+      const devices = await Html5Qrcode.getCameras();
+      if (!devices || devices.length === 0) return null;
+
+      // Heurística: buscar "back/rear/environment"
+      const prefer = devices.find(d => /back|rear|environment/i.test(d.label || ""));
+      return (prefer || devices[devices.length - 1]).id; // fallback: última
+    }
+
     async function startScanner() {
       setStatus("Iniciando cámara trasera…");
       if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
@@ -301,20 +315,39 @@
       const config = {
         fps: 12,
         qrbox: { width: 260, height: 260 },
-        formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ], // SOLO QR
+        formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ],
         experimentalFeatures: { useBarCodeDetectorIfSupported: true }
       };
 
       try {
+        // 1) Intento robusto por deviceId (mejor compatibilidad)
+        const deviceId = await pickBackCameraDeviceId();
+        if (!deviceId) throw new Error("No se detectaron cámaras.");
+
         await html5QrCode.start(
-          { facingMode: { exact: "environment" } }, // trasera
+          { deviceId: { exact: deviceId } },
+          config,
+          onScanSuccess,
+          () => {}
+        );
+
+        setStatus("Cámara trasera activa", "ok");
+        return;
+      } catch (e1) {
+        console.warn("deviceId fallback:", e1);
+      }
+
+      try {
+        // 2) fallback facingMode exact
+        await html5QrCode.start(
+          { facingMode: { exact: "environment" } },
           config,
           onScanSuccess,
           () => {}
         );
         setStatus("Cámara trasera activa", "ok");
-      } catch (e) {
-        // fallback
+      } catch (e2) {
+        // 3) fallback facingMode normal
         try {
           await html5QrCode.start(
             { facingMode: "environment" },
@@ -323,9 +356,9 @@
             () => {}
           );
           setStatus("Cámara trasera activa", "ok");
-        } catch (e2) {
-          console.error(e2);
-          setStatus("No se pudo iniciar (permiso/https)", "err");
+        } catch (e3) {
+          console.error(e3);
+          setStatus("No se pudo iniciar cámara (permiso/app interna)", "err");
         }
       }
     }
