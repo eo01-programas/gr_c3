@@ -27,7 +27,7 @@
 <body>
   <h2>GRE SUNAT | Escaneo masivo</h2>
   <p class="muted">
-    Si la cámara no abre: abre este link en <b>Chrome/Safari</b> (no dentro de WhatsApp/IG) y permite cámara.
+    Abre en Chrome/Safari (no dentro de WhatsApp/Instagram) y permite cámara.
   </p>
 
   <div class="card">
@@ -41,7 +41,7 @@
     <div id="reader"></div>
 
     <div style="height:12px"></div>
-    <div class="muted">O pega el URL (para probar):</div>
+    <div class="muted">O pega el URL (prueba manual):</div>
     <div class="row">
       <input id="urlInput" style="flex:1; min-width: 240px;"
              placeholder="https://e-factura.sunat.gob.pe/...hashqr=..." />
@@ -57,19 +57,16 @@
     <div id="out" class="muted">Aún no hay datos.</div>
   </div>
 
-  <!-- QR -->
   <script src="https://unpkg.com/html5-qrcode"></script>
-  <!-- PDF.js -->
-  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.js"></script>
-
   <script>
-    // PDF.js worker
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.js";
+    /************ CONFIG ************/
+    const APPS_SCRIPT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbx6ML2hMbfysWFx16x4K0R60G5bZ_Sfk5o8zeW0jbiXQ5Y2KU9mreJ2dDOwskwVYHGA/exec"; 
+    const API_KEY = "";
 
     const SUNAT_PREFIX =
       "https://e-factura.sunat.gob.pe/v1/contribuyente/gre/comprobantes/descargaqr?hashqr=";
 
+    /************ UI ************/
     const btnStart = document.getElementById("btnStart");
     const btnStop  = document.getElementById("btnStop");
     const btnProcess = document.getElementById("btnProcess");
@@ -89,7 +86,49 @@
       statusEl.className = "pill " + (type === "ok" ? "ok" : type === "err" ? "err" : "");
     }
 
-    // Limpieza del QR “sucio”
+    function esc(s) {
+      return String(s ?? "")
+        .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+    }
+
+    /************ JSONP ************/
+    function jsonpCall(params, timeoutMs = 180000) {
+      return new Promise((resolve, reject) => {
+        const cb = "cb_" + Date.now() + "_" + Math.random().toString(16).slice(2);
+        const qs = new URLSearchParams({ ...params, callback: cb }).toString();
+        const url = `${APPS_SCRIPT_WEBAPP_URL}?${qs}`;
+
+        const script = document.createElement("script");
+        let timer = null;
+
+        window[cb] = (data) => {
+          cleanup();
+          resolve(data);
+        };
+
+        script.onerror = () => {
+          cleanup();
+          reject(new Error("Error cargando JSONP (revisa /exec o permisos)."));
+        };
+
+        function cleanup() {
+          if (timer) clearTimeout(timer);
+          try { delete window[cb]; } catch {}
+          if (script.parentNode) script.parentNode.removeChild(script);
+        }
+
+        timer = setTimeout(() => {
+          cleanup();
+          reject(new Error("Timeout en API (tardó demasiado)."));
+        }, timeoutMs);
+
+        script.src = url;
+        document.body.appendChild(script);
+      });
+    }
+
+    /************ QR clean ************/
     function extractHashqr(raw) {
       if (!raw) return "";
       let s = String(raw).trim();
@@ -111,94 +150,26 @@
       return SUNAT_PREFIX + encodeURIComponent(token);
     }
 
-    function b64ToArrayBuffer(b64) {
-      const bin = atob(b64);
-      const len = bin.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
-      return bytes.buffer;
-    }
-
-    async function extractTextFromPdf(arrayBuffer) {
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      let full = [];
-      for (let p = 1; p <= pdf.numPages; p++) {
-        const page = await pdf.getPage(p);
-        const content = await page.getTextContent();
-        const strings = content.items.map(it => it.str).filter(Boolean);
-        full.push(strings.join(" "));
-      }
-      return full.join("\n").replace(/\s+/g, " ").trim();
-    }
-
-    function pick(re, s) {
-      const m = s.match(re);
-      return m ? (m[1] || m[0]).trim() : "";
-    }
-
-    function parseGreText(t) {
-      const ruc = pick(/RUC\s*N[°º]?\s*([0-9]{11})/i, t);
-
-      const m = t.match(/N[°º]\s*(EG\d{2})\s*[-–]\s*([0-9]{8})/i);
-      const serie = m ? m[1] : "";
-      const documento = m ? m[2] : "";
-
-      const empresa = pick(
-        /N[°º]\s*EG\d{2}\s*[-–]\s*[0-9]{8}\s*([A-ZÁÉÍÓÚÑ ]+?)\s*\d{2}\/\d{2}\/\d{4}/,
-        t
-      );
-
-      const fecha = pick(/Fecha de inicio de Traslado\s*:\s*(\d{2}\/\d{2}\/\d{4})/i, t);
-
-      let descripcion = pick(
-        /Descripción Detallada\s*(.*?)\s*(?:Indicador de traslado|Datos del traslado:|Observaciones)/i,
-        t
-      );
-      descripcion = descripcion.replace(/\s+primera\s+/i, "\nprimera ");
-
-      const op = pick(/\bop[:\s]*([0-9]{3,7})/i, descripcion);
-
-      let cantidad = "";
-      let um = "";
-      const q = t.match(/(\d+)\s+NO\s+\d{2}\s+([A-ZÁÉÍÓÚÑ]+)\s*\(NIU\)/i);
-      if (q) {
-        cantidad = q[1];
-        um = q[2];
-      } else {
-        cantidad = pick(/\bCantidad\b\s*:\s*(\d+)/i, t);
-        um = pick(/\b([A-ZÁÉÍÓÚÑ]+)\s*\(NIU\)/i, t);
-      }
-
-      return { fecha, serie, documento, empresa, ruc, descripcion, op, um, cantidad };
-    }
-
-    function esc(s) {
-      return String(s ?? "")
-        .replaceAll("&","&amp;")
-        .replaceAll("<","&lt;")
-        .replaceAll(">","&gt;")
-        .replaceAll('"',"&quot;")
-        .replaceAll("'","&#039;");
-    }
-
-    function renderResult(obj, r2) {
-      const downloadUrl = r2?.downloadUrl || "";
-      const viewUrl = r2?.viewUrl || "";
-      const filename = r2?.filename || "";
+    /************ Render ************/
+    function renderResult(resp) {
+      const d = resp?.data || {};
+      const viewUrl = resp?.viewUrl || "";
+      const downloadUrl = resp?.downloadUrl || "";
+      const filename = resp?.filename || "";
 
       const rows = [
-        ["FECHA", obj.fecha],
-        ["N_SERIE", obj.serie],
-        ["N_DOCUMENTO", obj.documento],
-        ["EMPRESA", obj.empresa],
-        ["RUC", obj.ruc],
-        ["DESCRIPCION", obj.descripcion],
-        ["OP", obj.op],
-        ["UNIDAD_MEDIDA", obj.um],
-        ["CANTIDAD", obj.cantidad],
-        ["ARCHIVO (Drive)", filename],
+        ["FECHA", d.FECHA],
+        ["N_SERIE", d.N_SERIE],
+        ["N_DOCUMENTO", d.N_DOCUMENTO],
+        ["EMPRESA", d.EMPRESA],
+        ["RUC", d.RUC],
+        ["DESCRIPCION", d.DESCRIPCION],
+        ["OP", d.OP],
+        ["UNIDAD_MEDIDA", d.UNIDAD_MEDIDA],
+        ["CANTIDAD", d.CANTIDAD],
+        ["ARCHIVO", filename],
+        ["URL (VISTA - guardada en bd)", viewUrl ? `<a href="${esc(viewUrl)}" target="_blank" rel="noopener">Ver PDF</a><div class="muted small">${esc(viewUrl)}</div>` : ""],
         ["URL (DESCARGA)", downloadUrl ? `<a href="${esc(downloadUrl)}" target="_blank" rel="noopener">Descargar PDF</a><div class="muted small">${esc(downloadUrl)}</div>` : ""],
-        ["URL (VISTA)", viewUrl ? `<a href="${esc(viewUrl)}" target="_blank" rel="noopener">Ver PDF</a><div class="muted small">${esc(viewUrl)}</div>` : ""]
       ];
 
       outEl.innerHTML = `
@@ -206,7 +177,7 @@
           ${rows.map(([k,v]) => `
             <tr>
               <th>${esc(k)}</th>
-              <td>${(k.startsWith("URL") || k.startsWith("ARCHIVO"))
+              <td>${(k.startsWith("URL") || k==="ARCHIVO")
                 ? (v || "")
                 : `<pre>${esc(v || "")}</pre>`}
               </td>
@@ -216,7 +187,8 @@
       `;
     }
 
-    function processUrlFlow(sunatUrl) {
+    /************ Flow ************/
+    async function processUrlFlow(sunatUrl) {
       if (busy) return;
 
       if (!sunatUrl || !sunatUrl.startsWith(SUNAT_PREFIX)) {
@@ -225,54 +197,36 @@
       }
 
       busy = true;
-      setStatus("Descargando y guardando PDF en Drive…");
+      setStatus("Procesando (SUNAT → Drive → bd)…");
       lastUrlEl.textContent = sunatUrl;
 
-      google.script.run
-        .withSuccessHandler(async (res) => {
-          try {
-            setStatus("Extrayendo contenido del PDF…");
-            const buf = b64ToArrayBuffer(res.b64);
-            const text = await extractTextFromPdf(buf);
+      try {
+        const resp = await jsonpCall({
+          action: "process",
+          url: sunatUrl,
+          ...(API_KEY ? { key: API_KEY } : {})
+        });
 
-            const data = parseGreText(text);
+        if (!resp || !resp.ok) {
+          throw new Error(resp?.error || "Respuesta inválida de API.");
+        }
 
-            setStatus("Escribiendo en bd…");
-            google.script.run
-              .withSuccessHandler((r2) => {
-                if (r2.status === "duplicate") {
-                  setStatus("Duplicado (omitido) ✅", "ok");
-                  outEl.innerHTML = `<div class="ok">Duplicado (omitido) ✅</div>`;
-                } else {
-                  setStatus("Procesado ✅", "ok");
-                  renderResult(data, r2);
-                }
-                if (navigator.vibrate) navigator.vibrate(50);
-                cooldownUntil = Date.now() + COOLDOWN_MS;
-                busy = false;
-              })
-              .withFailureHandler((err2) => {
-                console.error(err2);
-                setStatus("Error guardando bd: " + err2.message, "err");
-                cooldownUntil = Date.now() + COOLDOWN_MS;
-                busy = false;
-              })
-              .finalizeRecord(data, res.fileId, sunatUrl);
+        if (resp.status === "duplicate") {
+          setStatus("Duplicado (omitido) ✅", "ok");
+          outEl.innerHTML = `<div class="ok">Duplicado (omitido) ✅</div>`;
+        } else {
+          setStatus("Procesado ✅", "ok");
+          renderResult(resp);
+        }
 
-          } catch (e) {
-            console.error(e);
-            setStatus("Error procesando PDF: " + (e?.message || e), "err");
-            cooldownUntil = Date.now() + COOLDOWN_MS;
-            busy = false;
-          }
-        })
-        .withFailureHandler((err) => {
-          console.error(err);
-          setStatus("Error descarga/Drive: " + err.message, "err");
-          cooldownUntil = Date.now() + COOLDOWN_MS;
-          busy = false;
-        })
-        .fetchAndSavePdf(sunatUrl);
+        if (navigator.vibrate) navigator.vibrate(50);
+      } catch (e) {
+        console.error(e);
+        setStatus("Error: " + (e?.message || e), "err");
+      } finally {
+        cooldownUntil = Date.now() + COOLDOWN_MS;
+        busy = false;
+      }
     }
 
     function onScanSuccess(decodedText) {
@@ -280,7 +234,6 @@
       if (busy || now < cooldownUntil) return;
 
       const sunatUrl = buildSunatCleanUrl(decodedText) || decodedText;
-
       if (!sunatUrl.startsWith(SUNAT_PREFIX)) {
         setStatus("QR leído (no SUNAT)", "ok");
         cooldownUntil = now + COOLDOWN_MS;
@@ -290,26 +243,9 @@
       processUrlFlow(sunatUrl);
     }
 
-    // ==== CÁMARA TRASERA: selección robusta por deviceId ====
-    async function pickBackCameraDeviceId() {
-      // Pedimos permiso una vez para poder leer labels (en iOS/Android)
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        stream.getTracks().forEach(t => t.stop());
-      } catch (e) {
-        // si no da permiso, igual seguimos; la librería mostrará error
-      }
-
-      const devices = await Html5Qrcode.getCameras();
-      if (!devices || devices.length === 0) return null;
-
-      // Heurística: buscar "back/rear/environment"
-      const prefer = devices.find(d => /back|rear|environment/i.test(d.label || ""));
-      return (prefer || devices[devices.length - 1]).id; // fallback: última
-    }
-
+    /************ Camera (igual a tu snippet que sí prende) ************/
     async function startScanner() {
-      setStatus("Iniciando cámara trasera…");
+      setStatus("Iniciando cámara…");
       if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
 
       const config = {
@@ -320,25 +256,6 @@
       };
 
       try {
-        // 1) Intento robusto por deviceId (mejor compatibilidad)
-        const deviceId = await pickBackCameraDeviceId();
-        if (!deviceId) throw new Error("No se detectaron cámaras.");
-
-        await html5QrCode.start(
-          { deviceId: { exact: deviceId } },
-          config,
-          onScanSuccess,
-          () => {}
-        );
-
-        setStatus("Cámara trasera activa", "ok");
-        return;
-      } catch (e1) {
-        console.warn("deviceId fallback:", e1);
-      }
-
-      try {
-        // 2) fallback facingMode exact
         await html5QrCode.start(
           { facingMode: { exact: "environment" } },
           config,
@@ -346,8 +263,8 @@
           () => {}
         );
         setStatus("Cámara trasera activa", "ok");
-      } catch (e2) {
-        // 3) fallback facingMode normal
+      } catch (e) {
+        console.error(e);
         try {
           await html5QrCode.start(
             { facingMode: "environment" },
@@ -356,9 +273,9 @@
             () => {}
           );
           setStatus("Cámara trasera activa", "ok");
-        } catch (e3) {
-          console.error(e3);
-          setStatus("No se pudo iniciar cámara (permiso/app interna)", "err");
+        } catch (e2) {
+          console.error(e2);
+          setStatus("No se pudo iniciar (permiso/app interna)", "err");
         }
       }
     }
