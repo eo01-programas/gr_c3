@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Escáner QR (Cámara Trasera)</title>
+  <title>GRE SUNAT | QR → PDF → Extracción</title>
   <style>
     body { font-family: system-ui, Arial; margin: 16px; }
     .card { border: 1px solid #ddd; border-radius: 12px; padding: 12px; margin: 12px 0; }
@@ -12,23 +12,40 @@
     button { padding: 10px 12px; border-radius: 10px; border: 1px solid #ddd; background: #fff; cursor: pointer; }
     button.primary { border-color: #111; }
     .muted { color: #666; font-size: 13px; }
-    pre { white-space: pre-wrap; word-break: break-word; margin: 8px 0 0; }
-    .ok { color: #0a7a2f; font-weight: 600; }
-    .err { color: #b00020; font-weight: 600; }
+    .ok { color: #0a7a2f; font-weight: 700; }
+    .err { color: #b00020; font-weight: 700; }
     .pill { display:inline-block; padding: 4px 8px; border:1px solid #eee; border-radius: 999px; font-size: 12px; }
+    pre { white-space: pre-wrap; word-break: break-word; margin: 8px 0 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #fafafa; }
+    label.chk { display:flex; gap:8px; align-items:center; }
   </style>
 </head>
 <body>
-  <h2>Escáner QR (solo cámara trasera)</h2>
+  <h2>GRE SUNAT | QR → PDF → Extracción (masivo)</h2>
   <p class="muted">
-    Requiere HTTPS. Abre en Chrome/Safari (no dentro de WhatsApp/Instagram).
+    Cámara trasera + solo QR. Escaneas, descarga el PDF desde SUNAT (vía /proxy) y extrae datos.
   </p>
 
   <div class="card">
     <div class="row">
       <button id="btnStart" class="primary">Iniciar cámara trasera</button>
       <button id="btnStop">Detener</button>
+      <button id="btnClear">Limpiar tabla</button>
+      <button id="btnCsv">Exportar CSV</button>
       <span id="status" class="pill">Listo</span>
+    </div>
+
+    <div style="height:10px"></div>
+
+    <div class="row">
+      <label class="chk">
+        <input type="checkbox" id="chkSavePdf" />
+        <span class="muted">Guardar PDF en el celular (opcional)</span>
+      </label>
+      <span class="muted">Último QR:</span>
+      <span id="lastQr" class="pill">—</span>
     </div>
 
     <div style="height:12px"></div>
@@ -36,43 +53,59 @@
   </div>
 
   <div class="card">
-    <b>Resultado</b>
-    <div class="muted">Texto QR:</div>
-    <pre id="raw"></pre>
-
-    <div style="height:10px"></div>
-
-    <div class="muted">URL limpio (si es SUNAT):</div>
-    <pre id="clean"></pre>
-
-    <div class="row" style="margin-top:10px;">
-      <button id="btnCopy">Copiar</button>
-      <button id="btnOpen">Abrir</button>
-    </div>
+    <b>Registros</b>
+    <div id="tableWrap"></div>
   </div>
 
+  <div class="card">
+    <b>Debug (último URL)</b>
+    <pre id="lastUrl"></pre>
+  </div>
+
+  <!-- QR scanner -->
   <script src="https://unpkg.com/html5-qrcode"></script>
+  <!-- PDF.js -->
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.js"></script>
+
   <script>
+    // ===== PDF.js Worker =====
+    if (window.pdfjsLib?.GlobalWorkerOptions) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.js";
+    }
+
+    // ===== UI =====
     const statusEl = document.getElementById("status");
-    const rawEl = document.getElementById("raw");
-    const cleanEl = document.getElementById("clean");
+    const lastQrEl = document.getElementById("lastQr");
+    const lastUrlEl = document.getElementById("lastUrl");
+    const tableWrap = document.getElementById("tableWrap");
+    const chkSavePdf = document.getElementById("chkSavePdf");
 
     const btnStart = document.getElementById("btnStart");
-    const btnStop = document.getElementById("btnStop");
-    const btnCopy = document.getElementById("btnCopy");
-    const btnOpen = document.getElementById("btnOpen");
+    const btnStop  = document.getElementById("btnStop");
+    const btnClear = document.getElementById("btnClear");
+    const btnCsv   = document.getElementById("btnCsv");
 
+    // ===== STATE =====
     let html5QrCode = null;
-    let lastUrl = "";
+    let busy = false;
+    let cooldownUntil = 0;
+    const COOLDOWN_MS = 1200;
+
+    let rows = [];
+    let seen = new Set(); // dedupe
 
     function setStatus(text, type="") {
       statusEl.textContent = text;
       statusEl.className = "pill " + (type === "ok" ? "ok" : type === "err" ? "err" : "");
     }
 
+    // ===== SUNAT URL CLEAN =====
     function extractHashqr(raw) {
       if (!raw) return "";
       let s = String(raw).trim();
+
+      // normaliza cosas raras típicas de scanner
       s = s.replaceAll(" ", "");
       s = s.replaceAll("¡", "+");
       s = s.replaceAll("¿", "?");
@@ -94,49 +127,226 @@
       return base + encodeURIComponent(token);
     }
 
+    const SUNAT_PREFIX = "https://e-factura.sunat.gob.pe/v1/contribuyente/gre/comprobantes/descargaqr?hashqr=";
+
+    // ===== DOWNLOAD PDF via same-origin proxy =====
+    async function downloadPdfArrayBuffer(sunatUrl) {
+      const r = await fetch(`/proxy?url=${encodeURIComponent(sunatUrl)}`, { method: "GET" });
+      if (!r.ok) throw new Error("Descarga falló (proxy): " + r.status);
+      return await r.arrayBuffer();
+    }
+
+    function savePdfLocally(arrayBuffer, filename) {
+      const blob = new Blob([arrayBuffer], { type: "application/pdf" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename || "gre.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }
+
+    // ===== PDF TEXT EXTRACTION =====
+    async function extractTextFromPdf(arrayBuffer) {
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+      let full = [];
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const page = await pdf.getPage(p);
+        const content = await page.getTextContent();
+        const strings = content.items.map(it => it.str).filter(Boolean);
+        full.push(strings.join(" "));
+      }
+
+      return full.join("\n")
+        .replace(/\s+/g, " ")
+        .replace(/\s:\s/g, ": ")
+        .trim();
+    }
+
+    // ===== PARSE GRE TEXT =====
+    function pick(re, s) {
+      const m = s.match(re);
+      return m ? (m[1] || m[0]).trim() : "";
+    }
+
+    function parseGreText(t) {
+      // Nota: SUNAT varía un poco por formato, pero estas regex suelen cubrir bastante.
+      const rucRemitente = pick(/RUC\s*N[°º]?\s*([0-9]{11})/i, t);
+
+      const guiaMatch = t.match(/N[°º]\s*(EG\d{2})\s*[-–]\s*([0-9]{8})/i);
+      const guia = guiaMatch ? `${guiaMatch[1]}-${guiaMatch[2]}` : "";
+
+      const fechaInicio = pick(/Fecha de inicio de Traslado\s*:\s*(\d{2}\/\d{2}\/\d{4})/i, t);
+      const fechaHoraEmision = pick(/(\d{2}\/\d{2}\/\d{4}\s+\d{1,2}:\d{2}\s*(?:AM|PM))/i, t);
+
+      const destinatario = pick(/Datos del Destinatario\s*:\s*([A-Z0-9ÁÉÍÓÚÑ .&-]{3,}?)\s*-\s*REGISTRO/i, t);
+      const rucDest = pick(/CONTRIBUYENTES\s*N[°º]\s*([0-9]{11})/i, t);
+
+      const placa = pick(/Número de placa\s*:\s*([A-Z0-9]{5,8})/i, t);
+
+      // Cantidad: a veces aparece como "Cantidad: X" o dentro de la sección de bienes
+      let cantidad = pick(/\bCantidad\b\s*:\s*(\d+)/i, t);
+      if (!cantidad) {
+        const sec = t.match(/Bienes por transportar:(.*?)(?:Datos del traslado:|Observaciones|$)/i);
+        if (sec?.[1]) cantidad = pick(/\b(\d+)\b/, sec[1]);
+      }
+
+      const descripcion = pick(/Descripción Detallada\s*(.*?)\s*(?:Indicador de traslado|Datos del traslado|Observaciones)/i, t);
+
+      return {
+        guia,
+        fecha_inicio_traslado: fechaInicio,
+        ruc_remitente: rucRemitente,
+        destinatario,
+        ruc_destinatario: rucDest,
+        placa,
+        cantidad,
+        descripcion,
+        fecha_hora_emision: fechaHoraEmision
+      };
+    }
+
+    // ===== TABLE / CSV =====
+    function escapeHtml(s) {
+      return String(s ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function renderTable() {
+      if (rows.length === 0) {
+        tableWrap.innerHTML = `<div class="muted">Aún no hay registros.</div>`;
+        return;
+      }
+
+      const cols = [
+        "guia","fecha_inicio_traslado","ruc_remitente","destinatario",
+        "ruc_destinatario","placa","cantidad","descripcion","fecha_hora_emision","sunat_url"
+      ];
+
+      const thead = `<tr>${cols.map(c => `<th>${escapeHtml(c)}</th>`).join("")}</tr>`;
+      const tbody = rows.map(r =>
+        `<tr>${cols.map(c => `<td>${escapeHtml(r[c])}</td>`).join("")}</tr>`
+      ).join("");
+
+      tableWrap.innerHTML = `<table><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+    }
+
+    function csvCell(v) {
+      const s = String(v ?? "").replaceAll('"','""');
+      return `"${s}"`;
+    }
+
+    function exportCsv() {
+      if (rows.length === 0) return alert("No hay registros.");
+
+      const cols = [
+        "guia","fecha_inicio_traslado","ruc_remitente","destinatario",
+        "ruc_destinatario","placa","cantidad","descripcion","fecha_hora_emision","sunat_url"
+      ];
+
+      const csvLines = [];
+      csvLines.push(cols.join(","));
+      for (const r of rows) csvLines.push(cols.map(c => csvCell(r[c])).join(","));
+
+      const blob = new Blob([csvLines.join("\n")], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "gre_registros.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }
+
+    // ===== MAIN FLOW =====
+    async function processSunatUrl(sunatUrl) {
+      if (busy) return;
+      busy = true;
+
+      try {
+        setStatus("Descargando PDF…");
+        const pdfBuf = await downloadPdfArrayBuffer(sunatUrl);
+
+        if (chkSavePdf.checked) {
+          const fname = `GRE_${Date.now()}.pdf`;
+          savePdfLocally(pdfBuf, fname);
+        }
+
+        setStatus("Leyendo PDF…");
+        const text = await extractTextFromPdf(pdfBuf);
+
+        setStatus("Extrayendo datos…");
+        const data = parseGreText(text);
+        data.sunat_url = sunatUrl;
+
+        // dedupe: por guía si existe, sino por URL
+        const key = data.guia || sunatUrl;
+        if (!seen.has(key)) {
+          seen.add(key);
+          rows.unshift(data);
+          renderTable();
+          setStatus("OK (agregado)", "ok");
+          if (navigator.vibrate) navigator.vibrate(50);
+        } else {
+          setStatus("Duplicado (omitido)", "ok");
+        }
+      } catch (e) {
+        console.error(e);
+        setStatus("Error: " + (e?.message || e), "err");
+      } finally {
+        cooldownUntil = Date.now() + COOLDOWN_MS;
+        busy = false;
+      }
+    }
+
     function onScanSuccess(decodedText) {
-      rawEl.textContent = decodedText;
+      const now = Date.now();
+      if (busy || now < cooldownUntil) return;
 
-      const clean = buildSunatCleanUrl(decodedText) || decodedText;
-      cleanEl.textContent = clean;
-      lastUrl = clean;
+      lastQrEl.textContent = decodedText.slice(0, 55) + (decodedText.length > 55 ? "…" : "");
 
-      setStatus("QR leído", "ok");
+      const sunatUrl = buildSunatCleanUrl(decodedText) || decodedText;
+      lastUrlEl.textContent = sunatUrl;
 
-      // Si quieres que se detenga automáticamente al leer:
-      // stopScanner();
+      if (!sunatUrl.startsWith(SUNAT_PREFIX)) {
+        setStatus("QR leído (no es SUNAT)", "ok");
+        cooldownUntil = now + COOLDOWN_MS;
+        return;
+      }
+
+      processSunatUrl(sunatUrl);
     }
 
     async function startScanner() {
-      setStatus("Iniciando cámara...");
-      rawEl.textContent = "";
-      cleanEl.textContent = "";
-      lastUrl = "";
+      setStatus("Iniciando cámara…");
 
       if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
 
-      // SOLO QR
       const config = {
         fps: 12,
         qrbox: { width: 260, height: 260 },
+        // SOLO QR:
         formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ],
-        experimentalFeatures: {
-          useBarCodeDetectorIfSupported: true
-        }
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true }
       };
 
       try {
+        // intenta forzar cámara trasera
         await html5QrCode.start(
-          { facingMode: { exact: "environment" } }, // SOLO cámara trasera
+          { facingMode: { exact: "environment" } },
           config,
           onScanSuccess,
           () => {}
         );
         setStatus("Cámara trasera activa", "ok");
       } catch (e) {
-        console.error(e);
-
-        // Algunos dispositivos no aceptan exact: "environment". Probamos sin exact.
+        // fallback: algunos teléfonos no aceptan exact
         try {
           await html5QrCode.start(
             { facingMode: "environment" },
@@ -164,25 +374,20 @@
       }
     }
 
+    // ===== Buttons =====
     btnStart.addEventListener("click", startScanner);
     btnStop.addEventListener("click", stopScanner);
-
-    btnCopy.addEventListener("click", async () => {
-      const text = lastUrl || cleanEl.textContent || rawEl.textContent;
-      if (!text) return alert("No hay nada para copiar.");
-      try {
-        await navigator.clipboard.writeText(text);
-        alert("Copiado ✅");
-      } catch {
-        alert("No se pudo copiar (permiso portapapeles).");
-      }
+    btnClear.addEventListener("click", () => {
+      rows = [];
+      seen = new Set();
+      renderTable();
+      setStatus("Tabla limpia");
+      lastQrEl.textContent = "—";
+      lastUrlEl.textContent = "";
     });
+    btnCsv.addEventListener("click", exportCsv);
 
-    btnOpen.addEventListener("click", () => {
-      const url = lastUrl || cleanEl.textContent || rawEl.textContent;
-      if (!url) return alert("No hay URL para abrir.");
-      window.open(url, "_blank", "noopener,noreferrer");
-    });
+    renderTable();
   </script>
 </body>
 </html>
