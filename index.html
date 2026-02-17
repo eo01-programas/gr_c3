@@ -74,6 +74,50 @@
             word-break: break-word;
             margin: 8px 0 0;
         }
+
+        /* Modal Loading */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            flex-direction: column;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .modal-overlay.visible {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 5px solid #005cbf;
+            border-bottom-color: transparent;
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+
+        @keyframes rotation {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
     </style>
 </head>
 
@@ -82,68 +126,118 @@
 
     <div class="card">
         <div class="row">
-            <button id="btnStart" class="primary">Iniciar cámara trasera</button>
+            <button id="btnStart" class="primary">Iniciar cÃ¡mara trasera</button>
             <button id="btnStop">Detener</button>
             <span id="status" class="pill">Listo</span>
+        </div>
+
+        <div style="height:10px"></div>
+        <div class="row">
+            <input id="webappUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"
+                style="flex:1; min-width:260px;" />
+            <button id="btnSaveWebapp">Guardar API</button>
+        </div>
+        <div class="muted" style="margin-top:6px;">
+            GitHub Pages: puedes usar <code>?webapp=https://script.google.com/macros/s/.../exec</code>.
         </div>
 
         <div style="height:12px"></div>
         <div id="reader"></div>
 
         <div style="height:12px"></div>
-        <div class="muted">O pega el URL:</div>
-        <div class="row">
-            <input id="urlInput" style="flex:1; min-width: 240px;"
-                placeholder="https://e-factura.sunat.gob.pe/...hashqr=..." />
-            <button id="btnProcess">Procesar URL</button>
-            <button id="btnBatch" style="background:#0a7a2f; color:white; border-color:#05521f;">Procesar
-                Pendientes</button>
-        </div>
+
 
         <div style="margin-top:10px; border-top:1px solid #eee; padding-top:10px;">
             <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none" />
-            <button id="btnManual" style="background:#005cbf; color:white; width:100%;">📸 Foto Guía Manual</button>
+            <button id="btnManual" style="background:#005cbf; color:white; width:100%;">ðŸ“¸ Foto GuÃ­a Manual</button>
         </div>
 
-        <div class="muted" style="margin-top:10px;">Último URL:</div>
+        <div class="muted" style="margin-top:10px;">Ãšltimo URL:</div>
         <pre id="lastUrl"></pre>
     </div>
 
     <div class="card">
         <b>Respuesta</b>
-        <pre id="out" class="muted">Aún no hay datos.</pre>
+        <pre id="out" class="muted">AÃºn no hay datos.</pre>
+    </div>
+
+    <!-- Modal -->
+    <div id="loadingModal" class="modal-overlay">
+        <div class="spinner"></div>
+        <p style="margin-top:16px; font-weight:bold; color:#333;">Procesando...</p>
     </div>
 
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script>
-        const APPS_SCRIPT_WEBAPP_URL =
-            "https://script.google.com/macros/s/AKfycbxIInr-2jEAJ7E9QXhpOVMlh5DhogYXY-txmaJ_YEWOkaT8u0eISHPrUG5xH9q8AQby/exec";
+        const DEFAULT_APPS_SCRIPT_WEBAPP_URL =
+            "https://script.google.com/macros/s/AKfycbzfxGnSap-mOINFXj3tJIprd1C1Wqjiv92tIXhXgtkbPHqVWJEWWphj7twFsvhGSr6S/exec";
+        const WEBAPP_STORAGE_KEY = "gre_webapp_url";
+        let APPS_SCRIPT_WEBAPP_URL = DEFAULT_APPS_SCRIPT_WEBAPP_URL;
 
         const SUNAT_PREFIX =
             "https://e-factura.sunat.gob.pe/v1/contribuyente/gre/comprobantes/descargaqr?hashqr=";
 
         const btnStart = document.getElementById("btnStart");
         const btnStop = document.getElementById("btnStop");
-        const btnProcess = document.getElementById("btnProcess");
-        const btnBatch = document.getElementById("btnBatch");
+        const webappUrlInput = document.getElementById("webappUrl");
+        const btnSaveWebapp = document.getElementById("btnSaveWebapp");
+
         const btnManual = document.getElementById("btnManual");
         const fileInput = document.getElementById("fileInput");
-        const urlInput = document.getElementById("urlInput");
+
         const statusEl = document.getElementById("status");
         const lastUrlEl = document.getElementById("lastUrl");
         const outEl = document.getElementById("out");
+        const modal = document.getElementById("loadingModal");
 
         let html5QrCode = null;
         let busy = false;
+
+        function toggleBusy(isBusy, msg = "Procesando...") {
+            busy = isBusy;
+            if (isBusy) {
+                modal.querySelector("p").innerText = msg;
+                modal.classList.add("visible");
+            } else {
+                modal.classList.remove("visible");
+            }
+        }
 
         function setStatus(text, type = "") {
             statusEl.textContent = text;
             statusEl.className = "pill " + (type === "ok" ? "ok" : type === "err" ? "err" : "");
         }
 
+        function normalizeWebAppUrl(url) {
+            const s = String(url || "").trim();
+            if (!s) return "";
+            if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec(?:\?.*)?$/i.test(s)) return "";
+            return s.replace(/#.*$/, "");
+        }
+
+        function resolveWebAppUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const fromQuery = normalizeWebAppUrl(params.get("webapp"));
+            if (fromQuery) {
+                try { localStorage.setItem(WEBAPP_STORAGE_KEY, fromQuery); } catch { }
+                return fromQuery;
+            }
+
+            let fromStorage = "";
+            try { fromStorage = normalizeWebAppUrl(localStorage.getItem(WEBAPP_STORAGE_KEY)); } catch { }
+            if (fromStorage) return fromStorage;
+
+            return DEFAULT_APPS_SCRIPT_WEBAPP_URL;
+        }
+
+        function initWebAppConfig() {
+            APPS_SCRIPT_WEBAPP_URL = resolveWebAppUrl();
+            webappUrlInput.value = APPS_SCRIPT_WEBAPP_URL;
+        }
+
         function extractHashqr(raw) {
             if (!raw) return "";
-            let s = String(raw).trim().replaceAll(" ", "").replaceAll("¡", "+").replaceAll("¿", "?");
+            let s = String(raw).trim().replaceAll(" ", "").replaceAll("Â¡", "+").replaceAll("Â¿", "?");
             const i = s.toLowerCase().indexOf("hashqr");
             if (i === -1) return "";
             let tail = s.slice(i + "hashqr".length).replace(/^[:?=_-]+/g, "");
@@ -159,6 +253,10 @@
 
         function jsonpCall(params, timeoutMs = 120000) {
             return new Promise((resolve, reject) => {
+                if (!APPS_SCRIPT_WEBAPP_URL) {
+                    reject(new Error("API no configurada"));
+                    return;
+                }
                 const cb = "cb_" + Date.now() + "_" + Math.random().toString(16).slice(2);
                 const qs = new URLSearchParams({ ...params, callback: cb }).toString();
                 const url = `${APPS_SCRIPT_WEBAPP_URL}?${qs}`;
@@ -170,7 +268,7 @@
 
                 script.onerror = () => {
                     cleanup();
-                    reject(new Error("JSONP no cargó. URL: " + url));
+                    reject(new Error("JSONP no cargo. URL: " + url));
                 };
 
                 function cleanup() {
@@ -192,11 +290,11 @@
         async function processUrlFlow(sunatUrl) {
             if (busy) return;
             if (!sunatUrl.startsWith(SUNAT_PREFIX)) {
-                setStatus("URL no válida SUNAT", "err");
+                setStatus("URL no vÃ¡lida SUNAT", "err");
                 return;
             }
 
-            busy = true;
+            toggleBusy(true, "Procesando cÃ³digo QR...");
             setStatus("Procesando completo...");
             lastUrlEl.textContent = sunatUrl;
 
@@ -207,7 +305,7 @@
                 setStatus("Error JSONP", "err");
                 outEl.textContent = (e && e.message) ? e.message : String(e);
             } finally {
-                busy = false;
+                toggleBusy(false);
             }
         }
 
@@ -219,37 +317,13 @@
 
             const clean = buildSunatCleanUrl(decodedText) || decodedText;
             if (clean.startsWith(SUNAT_PREFIX)) processUrlFlow(clean);
-            else setStatus("QR leído (no SUNAT)", "ok");
+            else setStatus("QR leÃ­do (no SUNAT)", "ok");
         }
 
-        async function runBatch() {
-            if (busy) return;
-            busy = true;
-            setStatus("Procesando pendientes en Drive...");
 
-            try {
-                const resp = await jsonpCall({ action: "run_batch" });
-                if (resp?.ok) {
-                    setStatus("Proceso Masivo Terminado ✅", "ok");
-                    outEl.innerHTML = `
-                        <b>Resultado:</b><br>
-                        ${resp.message}<br>
-                        ${resp.errors && resp.errors.length ? "<br>Errores:<br>" + resp.errors.join("<br>") : ""}
-                    `;
-                } else {
-                    setStatus("Error en Batch", "err");
-                    outEl.textContent = JSON.stringify(resp, null, 2);
-                }
-            } catch (e) {
-                setStatus("Error Batch", "err");
-                outEl.textContent = String(e);
-            } finally {
-                busy = false;
-            }
-        }
 
         async function startScanner() {
-            setStatus("Iniciando cámara…");
+            setStatus("Iniciando cÃ¡maraâ€¦");
             if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
 
             const config = {
@@ -266,7 +340,7 @@
                     onScanSuccess,
                     () => { }
                 );
-                setStatus("Cámara trasera activa", "ok");
+                setStatus("CÃ¡mara trasera activa", "ok");
             } catch (e) {
                 try {
                     await html5QrCode.start(
@@ -275,9 +349,9 @@
                         onScanSuccess,
                         () => { }
                     );
-                    setStatus("Cámara trasera activa", "ok");
+                    setStatus("CÃ¡mara trasera activa", "ok");
                 } catch (e2) {
-                    setStatus("No se pudo iniciar cámara", "err");
+                    setStatus("No se pudo iniciar cÃ¡mara", "err");
                     outEl.textContent = String(e2);
                 }
             }
@@ -296,10 +370,30 @@
             }
         }
 
+        initWebAppConfig();
+
+        btnSaveWebapp.addEventListener("click", () => {
+            const normalized = normalizeWebAppUrl(webappUrlInput.value);
+            if (!normalized) {
+                setStatus("API invalida: usa script.google.com/.../exec", "err");
+                return;
+            }
+            APPS_SCRIPT_WEBAPP_URL = normalized;
+            webappUrlInput.value = normalized;
+            try { localStorage.setItem(WEBAPP_STORAGE_KEY, normalized); } catch { }
+            setStatus("API guardada", "ok");
+        });
+
+        webappUrlInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                btnSaveWebapp.click();
+            }
+        });
+
         btnStart.addEventListener("click", startScanner);
         btnStop.addEventListener("click", stopScanner);
-        btnProcess.addEventListener("click", () => processUrlFlow(urlInput.value.trim()));
-        btnBatch.addEventListener("click", runBatch);
+
 
         // === MANUAL PHOTO LOGIC ===
         btnManual.addEventListener("click", () => fileInput.click());
@@ -309,11 +403,12 @@
             const file = fileInput.files[0];
 
             if (busy) return;
-            busy = true;
+            toggleBusy(true, "Comprimiendo imagen...");
             setStatus("Comprimiendo imagen...");
 
             try {
                 const base64 = await resizeAndToBase64(file);
+                toggleBusy(true, "Subiendo y OCR...");
                 setStatus("Subiendo y OCR...");
 
                 const resp = await postCall({
@@ -328,16 +423,22 @@
                 setStatus("Error Foto", "err");
                 outEl.innerText = "Error subiendo/procesando: " + e;
             } finally {
-                busy = false;
+                toggleBusy(false);
                 fileInput.value = ""; // clear
             }
         });
 
         async function postCall(payload) {
+            if (!APPS_SCRIPT_WEBAPP_URL) {
+                throw new Error("API no configurada");
+            }
             const resp = await fetch(APPS_SCRIPT_WEBAPP_URL, {
                 method: "POST",
                 body: JSON.stringify(payload)
             });
+            if (!resp.ok) {
+                throw new Error("HTTP " + resp.status + " al llamar API");
+            }
             const json = await resp.json();
             return json;
         }
@@ -375,41 +476,84 @@
         }
 
         function renderResponse(resp) {
-            if (resp?.ok) {
-                setStatus("Guardado ✅", "ok");
-                const d = resp.data || {};
-                outEl.innerHTML = `
-                    <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:13px;">
-                        <tr style="background:#f0f0f0;"><th colspan="2" style="padding:6px; border:1px solid #ddd;">DATOS EXTRAÍDOS</th></tr>
-                        <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">N° GUÍA</th><td style="border:1px solid #ddd; padding:4px;"><b>${d.N_SERIE || ""}-${d.N_DOCUMENTO || ""}</b></td></tr>
-                        <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">FECHA</th><td style="border:1px solid #ddd; padding:4px;">${d.FECHA || ""}</td></tr>
-                        <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">RUC</th><td style="border:1px solid #ddd; padding:4px;">${d.RUC || ""}</td></tr>
-                        <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">EMPRESA</th><td style="border:1px solid #ddd; padding:4px;">${d.EMPRESA || ""}</td></tr>
-                        <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">DESCRIP.</th><td style="border:1px solid #ddd; padding:4px;">${d.DESCRIPCION || ""}</td></tr>
-                        <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">CANTIDAD</th><td style="border:1px solid #ddd; padding:4px;">${d.CANTIDAD || ""} ${d.UNIDAD_MEDIDA || ""}</td></tr>
-                        <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">OP</th><td style="border:1px solid #ddd; padding:4px;">${d.OP || ""}</td></tr>
-                        <tr style="background:#f9f9f9;">
-                            <th style="text-align:left; border:1px solid #ddd; padding:4px;">ARCHIVO</th>
-                            <td style="border:1px solid #ddd; padding:4px;"><a href="${resp.fileUrl}" target="_blank">Ver Archivo</a></td>
-                        </tr>
-                    </table>
-
-                    <details style="margin-top:10px; border:1px solid #eee; padding:8px; border-radius:6px;">
-                        <summary style="cursor:pointer; font-weight:bold; color:#555;">Ver Texto Completo (Raw)</summary>
-                        <pre style="white-space:pre-wrap; font-size:11px; color:#333; margin-top:5px;">${resp.fullText || "Sin texto"}</pre>
-                    </details>
-                `;
-            } else {
+            if (!resp?.ok) {
                 setStatus("Error API", "err");
                 outEl.textContent = JSON.stringify(resp, null, 2);
+                return;
             }
+
+            setStatus("Guardado OK", "ok");
+            const d = resp.data || {};
+            const items = Array.isArray(d.ITEMS) ? d.ITEMS : [];
+            const firstItem = items[0] || {};
+            const tipo = d.TIPO || firstItem.TIPO || "";
+            const op = d.OP || firstItem.OP || "";
+            const color = d.COLOR || firstItem.COLOR || "";
+
+            const sizeOrder = [
+                "0", "2", "4", "6", "8", "10", "12", "14", "16", "18", "20",
+                "XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL",
+                "XS/S", "S/M", "M/L", "L/XL", "XL/XXL",
+                "1X", "2XL", "3XL", "4XL", "5XL", "MT", "LT", "XLT", "XXLT"
+            ];
+
+            function formatSizeMap(sizeMap) {
+                if (!sizeMap || typeof sizeMap !== "object") return "Sin desglose";
+                const pairs = sizeOrder
+                    .map(sz => [sz, Number(sizeMap[sz] || 0)])
+                    .filter(([_, qty]) => Number.isFinite(qty) && qty > 0)
+                    .map(([sz, qty]) => `${sz}=${qty}`);
+                return pairs.length ? pairs.join(" ") : "Sin desglose";
+            }
+
+            const itemBlocks = items.length
+                ? items.map((it, idx) => `
+                    <tr>
+                        <th style="text-align:left; border:1px solid #ddd; padding:4px;">ITEM ${idx + 1}</th>
+                        <td style="border:1px solid #ddd; padding:4px;">
+                            TIPO: ${it.TIPO || ""}<br>
+                            OP: ${it.OP || ""}<br>
+                            COLOR: ${it.COLOR || ""}<br>
+                            TALLAS: ${formatSizeMap(it.SIZES)}
+                        </td>
+                    </tr>
+                `).join("")
+                : `
+                    <tr>
+                        <th style="text-align:left; border:1px solid #ddd; padding:4px;">TALLAS</th>
+                        <td style="border:1px solid #ddd; padding:4px;">Sin desglose</td>
+                    </tr>
+                `;
+
+            outEl.innerHTML = `
+                <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:13px;">
+                    <tr style="background:#f0f0f0;"><th colspan="2" style="padding:6px; border:1px solid #ddd;">DATOS EXTRAIDOS</th></tr>
+                    <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">N GUIA</th><td style="border:1px solid #ddd; padding:4px;"><b>${d.N_SERIE || ""}-${d.N_DOCUMENTO || ""}</b></td></tr>
+                    <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">FECHA</th><td style="border:1px solid #ddd; padding:4px;">${d.FECHA || ""}</td></tr>
+                    <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">RUC</th><td style="border:1px solid #ddd; padding:4px;">${d.RUC || ""}</td></tr>
+                    <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">EMPRESA</th><td style="border:1px solid #ddd; padding:4px;">${d.EMPRESA || ""}</td></tr>
+                    <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">TIPO</th><td style="border:1px solid #ddd; padding:4px;">${tipo}</td></tr>
+                    <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">OP</th><td style="border:1px solid #ddd; padding:4px;">${op}</td></tr>
+                    <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">COLOR</th><td style="border:1px solid #ddd; padding:4px;">${color}</td></tr>
+                    ${itemBlocks}
+                    <tr style="background:#f9f9f9;">
+                        <th style="text-align:left; border:1px solid #ddd; padding:4px;">ARCHIVO</th>
+                        <td style="border:1px solid #ddd; padding:4px;"><a href="${resp.fileUrl || "#"}" target="_blank">Ver Archivo</a></td>
+                    </tr>
+                </table>
+
+                <details style="margin-top:10px; border:1px solid #eee; padding:8px; border-radius:6px;">
+                    <summary style="cursor:pointer; font-weight:bold; color:#555;">Ver Texto Completo (Raw)</summary>
+                    <pre style="white-space:pre-wrap; font-size:11px; color:#333; margin-top:5px;">${resp.fullText || resp.text || "Sin texto"}</pre>
+                </details>
+            `;
         }
 
-        // test rápido de ping
+        // test rÃ¡pido de ping
         (async () => {
             try {
                 const r = await jsonpCall({ action: "ping" }, 20000);
-                if (r?.ok) setStatus("API OK ✅", "ok");
+                if (r?.ok) setStatus("API OK âœ…", "ok");
             } catch { }
         })();
     </script>
