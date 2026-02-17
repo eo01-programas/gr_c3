@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Escáner QR (SUNAT)</title>
+  <title>Escáner QR (Cámara Trasera)</title>
   <style>
     body { font-family: system-ui, Arial; margin: 16px; }
     .card { border: 1px solid #ddd; border-radius: 12px; padding: 12px; margin: 12px 0; }
     #reader { width: min(420px, 100%); margin: 0 auto; }
     .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    button, select { padding: 10px 12px; border-radius: 10px; border: 1px solid #ddd; background: #fff; cursor: pointer; }
+    button { padding: 10px 12px; border-radius: 10px; border: 1px solid #ddd; background: #fff; cursor: pointer; }
     button.primary { border-color: #111; }
     .muted { color: #666; font-size: 13px; }
     pre { white-space: pre-wrap; word-break: break-word; margin: 8px 0 0; }
@@ -19,24 +19,16 @@
   </style>
 </head>
 <body>
-  <h2>Escáner QR (cámara)</h2>
+  <h2>Escáner QR (solo cámara trasera)</h2>
   <p class="muted">
-    Requiere HTTPS. Si no aparece permiso de cámara, revisa permisos del navegador/sistema.
+    Requiere HTTPS. Abre en Chrome/Safari (no dentro de WhatsApp/Instagram).
   </p>
 
   <div class="card">
     <div class="row">
-      <button id="btnStart" class="primary">Iniciar cámara</button>
+      <button id="btnStart" class="primary">Iniciar cámara trasera</button>
       <button id="btnStop">Detener</button>
       <span id="status" class="pill">Listo</span>
-    </div>
-
-    <div style="height:10px"></div>
-
-    <div class="row">
-      <label class="muted">Cámara:</label>
-      <select id="cameraSelect"></select>
-      <button id="btnReload">Recargar lista</button>
     </div>
 
     <div style="height:12px"></div>
@@ -54,8 +46,8 @@
     <pre id="clean"></pre>
 
     <div class="row" style="margin-top:10px;">
-      <button id="btnCopy">Copiar URL</button>
-      <button id="btnOpen">Abrir URL</button>
+      <button id="btnCopy">Copiar</button>
+      <button id="btnOpen">Abrir</button>
     </div>
   </div>
 
@@ -64,69 +56,33 @@
     const statusEl = document.getElementById("status");
     const rawEl = document.getElementById("raw");
     const cleanEl = document.getElementById("clean");
-    const cameraSelect = document.getElementById("cameraSelect");
 
     const btnStart = document.getElementById("btnStart");
     const btnStop = document.getElementById("btnStop");
-    const btnReload = document.getElementById("btnReload");
     const btnCopy = document.getElementById("btnCopy");
     const btnOpen = document.getElementById("btnOpen");
 
     let html5QrCode = null;
-    let lastCleanUrl = "";
+    let lastUrl = "";
 
     function setStatus(text, type="") {
       statusEl.textContent = text;
       statusEl.className = "pill " + (type === "ok" ? "ok" : type === "err" ? "err" : "");
     }
 
-    async function loadCameras() {
-      cameraSelect.innerHTML = "";
-      try {
-        const devices = await Html5Qrcode.getCameras();
-        if (!devices || devices.length === 0) {
-          const opt = document.createElement("option");
-          opt.value = "";
-          opt.textContent = "No se detectaron cámaras";
-          cameraSelect.appendChild(opt);
-          return;
-        }
-        devices.forEach(d => {
-          const opt = document.createElement("option");
-          opt.value = d.id;
-          opt.textContent = d.label || `Camera ${d.id}`;
-          cameraSelect.appendChild(opt);
-        });
-      } catch (e) {
-        console.error(e);
-        const opt = document.createElement("option");
-        opt.value = "";
-        opt.textContent = "Error listando cámaras";
-        cameraSelect.appendChild(opt);
-      }
-    }
-
     function extractHashqr(raw) {
       if (!raw) return "";
-
-      // Normaliza caracteres raros típicos de pistolas/escáneres
       let s = String(raw).trim();
       s = s.replaceAll(" ", "");
-      s = s.replaceAll("¡", "+"); // a veces reemplaza '+'
-      s = s.replaceAll("¿", "?"); // a veces reemplaza '?'
+      s = s.replaceAll("¡", "+");
+      s = s.replaceAll("¿", "?");
 
-      // Busca "hashqr"
       const lower = s.toLowerCase();
       const i = lower.indexOf("hashqr");
       if (i === -1) return "";
 
-      // Toma lo que viene después de hashqr (con separadores raros)
       let tail = s.slice(i + "hashqr".length);
-
-      // quita separadores comunes: ? = : _ -
       tail = tail.replace(/^[:?=_-]+/g, "");
-
-      // corta en el primer caracter que NO parezca base64/url
       const m = tail.match(/^[A-Za-z0-9+\/=_%-]+/);
       return m ? m[0] : "";
     }
@@ -134,11 +90,7 @@
     function buildSunatCleanUrl(raw) {
       const token = extractHashqr(raw);
       if (!token) return "";
-
-      // URL canónica (la que normalmente te abre el celular)
       const base = "https://e-factura.sunat.gob.pe/v1/contribuyente/gre/comprobantes/descargaqr?hashqr=";
-
-      // encodeURIComponent para que '+' no se convierta en espacio
       return base + encodeURIComponent(token);
     }
 
@@ -147,11 +99,11 @@
 
       const clean = buildSunatCleanUrl(decodedText) || decodedText;
       cleanEl.textContent = clean;
-      lastCleanUrl = clean;
+      lastUrl = clean;
 
       setStatus("QR leído", "ok");
 
-      // opcional: detener al primer scan (descomenta si quieres)
+      // Si quieres que se detenga automáticamente al leer:
       // stopScanner();
     }
 
@@ -159,55 +111,51 @@
       setStatus("Iniciando cámara...");
       rawEl.textContent = "";
       cleanEl.textContent = "";
-      lastCleanUrl = "";
+      lastUrl = "";
 
       if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
 
-      const camId = cameraSelect.value;
-
+      // SOLO QR
       const config = {
-        fps: 10,
+        fps: 12,
         qrbox: { width: 260, height: 260 },
-        // intenta usar cámara trasera si el navegador lo soporta
-        // (si eliges camId, se prioriza ese dispositivo)
-        aspectRatio: 1.777
+        formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ],
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true
+        }
       };
 
       try {
-        if (camId) {
-          await html5QrCode.start(
-            { deviceId: { exact: camId } },
-            config,
-            onScanSuccess,
-            () => {}
-          );
-        } else {
+        await html5QrCode.start(
+          { facingMode: { exact: "environment" } }, // SOLO cámara trasera
+          config,
+          onScanSuccess,
+          () => {}
+        );
+        setStatus("Cámara trasera activa", "ok");
+      } catch (e) {
+        console.error(e);
+
+        // Algunos dispositivos no aceptan exact: "environment". Probamos sin exact.
+        try {
           await html5QrCode.start(
             { facingMode: "environment" },
             config,
             onScanSuccess,
             () => {}
           );
+          setStatus("Cámara trasera activa", "ok");
+        } catch (e2) {
+          console.error(e2);
+          setStatus("No se pudo iniciar (HTTPS/permisos)", "err");
         }
-        setStatus("Cámara activa", "ok");
-      } catch (e) {
-        console.error(e);
-        setStatus("No se pudo iniciar cámara (permiso/HTTPS)", "err");
-        // Ayuda rápida en consola
-        console.log("Tip: abre en https, revisa permisos de cámara del navegador/OS.");
       }
     }
 
     async function stopScanner() {
       if (!html5QrCode) return;
       try {
-        const state = html5QrCode.getState?.();
-        if (state === Html5QrcodeScannerState.SCANNING || state === 2) {
-          await html5QrCode.stop();
-        } else {
-          // si no expone estado, intentamos stop igual
-          await html5QrCode.stop().catch(()=>{});
-        }
+        await html5QrCode.stop();
         await html5QrCode.clear();
         setStatus("Detenido");
       } catch (e) {
@@ -218,10 +166,9 @@
 
     btnStart.addEventListener("click", startScanner);
     btnStop.addEventListener("click", stopScanner);
-    btnReload.addEventListener("click", loadCameras);
 
     btnCopy.addEventListener("click", async () => {
-      const text = lastCleanUrl || cleanEl.textContent || rawEl.textContent;
+      const text = lastUrl || cleanEl.textContent || rawEl.textContent;
       if (!text) return alert("No hay nada para copiar.");
       try {
         await navigator.clipboard.writeText(text);
@@ -232,13 +179,10 @@
     });
 
     btnOpen.addEventListener("click", () => {
-      const url = lastCleanUrl || cleanEl.textContent || rawEl.textContent;
+      const url = lastUrl || cleanEl.textContent || rawEl.textContent;
       if (!url) return alert("No hay URL para abrir.");
       window.open(url, "_blank", "noopener,noreferrer");
     });
-
-    // Inicial
-    loadCameras();
   </script>
 </body>
 </html>
