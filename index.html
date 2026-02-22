@@ -1,271 +1,677 @@
 <!doctype html>
 <html lang="es">
+
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Scanner SUNAT + Manual</title>
+    <title>GRE SUNAT | Escaneo masivo</title>
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 16px; background:#f4f4f9; }
-        .card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        h2 { margin-top: 0; font-size: 1.2rem; color: #333; }
-        
-        /* Botones */
-        .btn { display: block; width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; margin-bottom: 8px; }
-        .btn-primary { background: #000; color: #fff; }
-        .btn-blue { background: #0066ff; color: #fff; }
-        .btn-stop { background: #ffebee; color: #b71c1c; }
-        
-        #reader { width: 100%; border-radius: 8px; overflow: hidden; background: #000; }
-        
-        /* Status Pill */
-        .status { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; background: #eee; color: #666; margin-bottom: 10px; }
-        .status.ok { background: #e8f5e9; color: #2e7d32; }
-        .status.err { background: #ffebee; color: #c62828; }
-        .status.busy { background: #e3f2fd; color: #1565c0; }
+        body {
+            font-family: system-ui, Arial;
+            margin: 16px;
+        }
 
-        pre { white-space: pre-wrap; word-break: break-word; background: #fafafa; padding: 10px; border-radius: 6px; font-size: 0.8rem; color: #444; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        th, td { border: 1px solid #eee; padding: 6px; text-align: left; }
-        th { background: #f9f9f9; }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 12px;
+            margin: 12px 0;
+        }
 
-        /* Loading Overlay */
-        .overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999; visibility: hidden; opacity: 0; transition: 0.2s; }
-        .overlay.active { visibility: visible; opacity: 1; }
-        .spinner { width: 40px; height: 40px; border: 4px solid #ddd; border-top-color: #0066ff; border-radius: 50%; animation: spin 1s infinite linear; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        #reader {
+            width: min(420px, 100%);
+            margin: 0 auto;
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        button,
+        input {
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+            background: #fff;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        button.primary {
+            border-color: #111;
+        }
+
+        .muted {
+            color: #666;
+            font-size: 13px;
+        }
+
+        .pill {
+            display: inline-block;
+            padding: 4px 8px;
+            border: 1px solid #eee;
+            border-radius: 999px;
+            font-size: 12px;
+        }
+
+        .ok {
+            color: #0a7a2f;
+            font-weight: 700;
+        }
+
+        .err {
+            color: #b00020;
+            font-weight: 700;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin: 8px 0 0;
+        }
+
+        /* Modal Loading */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            flex-direction: column;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .modal-overlay.visible {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 5px solid #005cbf;
+            border-bottom-color: transparent;
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+
+        @keyframes rotation {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
     </style>
 </head>
+
 <body>
+    <h2>GRE SUNAT | Escaneo masivo</h2>
 
     <div class="card">
-        <h2>📷 Escáner Guías</h2>
-        <div id="status" class="status">Listo</div>
-        
+        <div class="row">
+            <button id="btnStart" class="primary">Iniciar cámara trasera</button>
+            <button id="btnStop">Detener</button>
+            <span id="status" class="pill">Listo</span>
+        </div>
+
+        <div style="height:12px"></div>
         <div id="reader"></div>
-        
-        <div style="margin-top: 12px; display: flex; gap: 8px;">
-            <button id="btnScan" class="btn btn-primary">Escanear QR</button>
-            <button id="btnStop" class="btn btn-stop" style="display:none">Detener</button>
+
+        <div style="height:12px"></div>
+
+
+        <div style="margin-top:10px; border-top:1px solid #eee; padding-top:10px;">
+            <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none" />
+            <button id="btnManual" style="background:#005cbf; color:white; width:100%;">📸 Foto Guía Manual</button>
         </div>
 
-        <div style="margin-top: 16px; border-top: 1px solid #eee; padding-top: 16px;">
-            <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none" />
-            <button id="btnManual" class="btn btn-blue">📸 Foto Manual (OCR)</button>
-            <small style="color:#666; display:block; text-align:center;">Usa esto si el QR no funciona</small>
-        </div>
+        <div class="muted" style="margin-top:10px;">Último URL:</div>
+        <pre id="lastUrl"></pre>
     </div>
 
     <div class="card">
-        <h2>Resultados</h2>
-        <div id="output">No hay datos recientes.</div>
+        <b>Respuesta</b>
+        <pre id="out" class="muted">Aún no hay datos.</pre>
     </div>
 
-    <div id="overlay" class="overlay">
+    <!-- Modal -->
+    <div id="loadingModal" class="modal-overlay">
         <div class="spinner"></div>
-        <p id="loadingMsg" style="margin-top:15px; font-weight:600; color:#333;">Procesando...</p>
+        <p style="margin-top:16px; font-weight:bold; color:#333;">Procesando...</p>
+        <button id="btnCancel" style="margin-top:16px; padding:8px 16px; background:#b00020; color:white; border:none; border-radius:6px; cursor:pointer;">❌ Cancelar</button>
     </div>
 
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
+        // Configurar PDF.js worker
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        
-        // --- CONFIGURACIÓN ---
-        // TU URL ACTUALIZADA:
-        let APP_URL = "https://script.google.com/macros/s/AKfycbxvJLP5MGxgv8Zw8RvNtuJV8Wc6gSFNBnU0Ho6u5WaDaKCvYojpnieqmThKO8MRWK5P/exec"; 
-        
-        const SUNAT_PREFIX = "https://e-factura.sunat.gob.pe";
-        
-        const ui = {
-            status: document.getElementById("status"),
-            btnScan: document.getElementById("btnScan"),
-            btnStop: document.getElementById("btnStop"),
-            btnManual: document.getElementById("btnManual"),
-            fileInput: document.getElementById("fileInput"),
-            output: document.getElementById("output"),
-            overlay: document.getElementById("overlay"),
-            msg: document.getElementById("loadingMsg")
-        };
+        const DEFAULT_APPS_SCRIPT_WEBAPP_URL =
+            "https://script.google.com/macros/s/AKfycbyUaUA7BGe3uTtznnpHAj7azYBBxYlOZGXA6NkzOd9BTc6ISttMPWZJ4FqRCWusyPfU/exec";
+        const WEBAPP_STORAGE_KEY = "gre_webapp_url";
+        let APPS_SCRIPT_WEBAPP_URL = DEFAULT_APPS_SCRIPT_WEBAPP_URL;
 
-        let scanner = null;
+        const SUNAT_PREFIX =
+            "https://e-factura.sunat.gob.pe/v1/contribuyente/gre/comprobantes/descargaqr?hashqr=";
 
-        function setStatus(msg, type="") {
-            ui.status.textContent = msg;
-            ui.status.className = "status " + type;
+        const btnStart = document.getElementById("btnStart");
+        const btnStop = document.getElementById("btnStop");
+
+        const btnManual = document.getElementById("btnManual");
+        const fileInput = document.getElementById("fileInput");
+
+        const statusEl = document.getElementById("status");
+        const lastUrlEl = document.getElementById("lastUrl");
+        const outEl = document.getElementById("out");
+        const modal = document.getElementById("loadingModal");
+
+        let html5QrCode = null;
+        let busy = false;
+
+        function toggleBusy(isBusy, msg = "Procesando...") {
+            busy = isBusy;
+            if (isBusy) {
+                modal.querySelector("p").innerText = msg;
+                modal.classList.add("visible");
+            } else {
+                modal.classList.remove("visible");
+            }
         }
 
-        function toggleBusy(isBusy, text="Cargando...") {
-            ui.msg.textContent = text;
-            ui.overlay.classList.toggle("active", isBusy);
+        function setStatus(text, type = "") {
+            statusEl.textContent = text;
+            statusEl.className = "pill " + (type === "ok" ? "ok" : type === "err" ? "err" : "");
         }
 
-        // --- 1. QR SCANNER LOGIC ---
-        ui.btnScan.addEventListener("click", () => {
-            if(!scanner) scanner = new Html5Qrcode("reader");
-            ui.btnScan.style.display = "none";
-            ui.btnStop.style.display = "block";
-            
-            scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, 
-                (decodedText) => {
-                    handleQrDetected(decodedText);
-                },
-                (err) => {}
-            ).catch(err => {
-                setStatus("Error cámara: " + err, "err");
-                stopScanner();
+        function normalizeWebAppUrl(url) {
+            const s = String(url || "").trim();
+            if (!s) return "";
+            if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec(?:\?.*)?$/i.test(s)) return "";
+            return s.replace(/#.*$/, "");
+        }
+
+        function resolveWebAppUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const fromQuery = normalizeWebAppUrl(params.get("webapp"));
+            if (fromQuery) {
+                try { localStorage.setItem(WEBAPP_STORAGE_KEY, fromQuery); } catch { }
+                return fromQuery;
+            }
+
+            let fromStorage = "";
+            try { fromStorage = normalizeWebAppUrl(localStorage.getItem(WEBAPP_STORAGE_KEY)); } catch { }
+            if (fromStorage) return fromStorage;
+
+            return DEFAULT_APPS_SCRIPT_WEBAPP_URL;
+        }
+
+        function initWebAppConfig() {
+            APPS_SCRIPT_WEBAPP_URL = resolveWebAppUrl();
+        }
+
+        function extractHashqr(raw) {
+            if (!raw) return "";
+            let s = String(raw).trim().replaceAll(" ", "").replaceAll("Â¡", "+").replaceAll("Â¿", "?");
+            const i = s.toLowerCase().indexOf("hashqr");
+            if (i === -1) return "";
+            let tail = s.slice(i + "hashqr".length).replace(/^[:?=_-]+/g, "");
+            const m = tail.match(/^[A-Za-z0-9+\/=_%-]+/);
+            return m ? m[0] : "";
+        }
+
+        function buildSunatCleanUrl(raw) {
+            const token = extractHashqr(raw);
+            if (!token) return "";
+            return SUNAT_PREFIX + encodeURIComponent(token);
+        }
+
+        let currentRequest = null;
+
+        function jsonpCall(params, timeoutMs = 180000) {
+            return new Promise((resolve, reject) => {
+                if (!APPS_SCRIPT_WEBAPP_URL) {
+                    reject(new Error("API no configurada"));
+                    return;
+                }
+                const cb = "cb_" + Date.now() + "_" + Math.random().toString(16).slice(2);
+                const qs = new URLSearchParams({ ...params, callback: cb }).toString();
+                const url = `${APPS_SCRIPT_WEBAPP_URL}?${qs}`;
+
+                const script = document.createElement("script");
+                let timer = null;
+                let startTime = Date.now();
+
+                currentRequest = { cb, cancel: () => { cleanup(); reject(new Error("Cancelado por usuario")); } };
+
+                window[cb] = (data) => { cleanup(); resolve(data); };
+
+                script.onerror = () => {
+                    cleanup();
+                    reject(new Error("JSONP no cargo. Verifica que la URL sea correcta."));
+                };
+
+                function cleanup() {
+                    if (timer) clearTimeout(timer);
+                    try { delete window[cb]; } catch { }
+                    if (script.parentNode) script.parentNode.removeChild(script);
+                    currentRequest = null;
+                }
+
+                timer = setTimeout(() => {
+                    cleanup();
+                    reject(new Error("⏱️ Timeout. API no responde después de " + Math.round((Date.now() - startTime) / 1000) + "s. Verifica que code.gs esté deployed."));
+                }, Math.min(timeoutMs, 120000));
+
+                console.log("📡 Llamando API:", url);
+                script.src = url;
+                document.body.appendChild(script);
             });
-        });
-
-        ui.btnStop.addEventListener("click", stopScanner);
-
-        function stopScanner() {
-            if(scanner) {
-                scanner.stop().then(() => scanner.clear()).catch(console.error);
-            }
-            ui.btnScan.style.display = "block";
-            ui.btnStop.style.display = "none";
         }
 
-        async function handleQrDetected(text) {
-            stopScanner();
-            let cleanUrl = text;
-            // Limpieza básica de URL Sunat
-            if (text.includes("hashqr=")) {
-                const token = text.split("hashqr=")[1];
-                cleanUrl = SUNAT_PREFIX + "/v1/contribuyente/gre/comprobantes/descargaqr?hashqr=" + token;
-            }
-
-            if(!cleanUrl.includes("sunat.gob.pe")) {
-                setStatus("QR leído pero NO es SUNAT", "err");
-                ui.output.textContent = text;
+        async function processUrlFlow(sunatUrl) {
+            if (busy) return;
+            if (!sunatUrl.startsWith(SUNAT_PREFIX)) {
+                setStatus("URL no válida SUNAT", "err");
                 return;
             }
 
-            // PROCESO QR: 1. Descargar PDF (Frontend) -> 2. Extraer Texto -> 3. Enviar a Apps Script
+            toggleBusy(true, "⬇️ Descargando PDF SUNAT...");
+            setStatus("Descargando...");
+            lastUrlEl.textContent = sunatUrl;
+
             try {
-                toggleBusy(true, "Descargando PDF SUNAT...");
-                const blob = await fetch(cleanUrl).then(r => r.blob());
+                // OPTIMIZACION: Descargar PDF y extraer texto LOCALMENTE con PDF.js
+                toggleBusy(true, "📄 Extrayendo texto del PDF...");
+                const pdfBlob = await fetch(sunatUrl).then(r => r.blob());
+                const pdfText = await extractTextFromPdf_(pdfBlob);
                 
-                toggleBusy(true, "Leyendo PDF...");
-                const pdfText = await extractPdfText(blob);
+                toggleBusy(true, "🔍 Analizando datos...");
                 
-                toggleBusy(true, "Guardando datos...");
-                const resp = await sendToBackend({ action: "process_text", text: pdfText, url: cleanUrl });
-                
-                renderResult(resp);
-                setStatus("Guardado OK", "ok");
+                // Enviar SOLO el texto al backend para parsear y guardar
+                const resp = await postCall({
+                    action: "process_text",
+                    text: pdfText,
+                    url: sunatUrl
+                });
+
+                if (!resp?.ok) {
+                    throw new Error(resp?.error || "Respuesta inválida de API");
+                }
+                toggleBusy(true, "💾 Guardando...");
+                renderResponse(resp);
             } catch (e) {
                 setStatus("Error", "err");
-                ui.output.textContent = e.message;
+                const msg = (e && e.message) ? e.message : String(e);
+                outEl.innerHTML = `<b>Error:</b><br>${msg}<br><br><button onclick="location.reload()">Reiniciar</button>`;
+                console.error("Error en processUrlFlow:", e);
             } finally {
                 toggleBusy(false);
             }
         }
 
-        // --- 2. MANUAL PHOTO LOGIC ---
-        ui.btnManual.addEventListener("click", () => ui.fileInput.click());
-        
-        ui.fileInput.addEventListener("change", async () => {
-            if (ui.fileInput.files.length === 0) return;
-            const file = ui.fileInput.files[0];
-            
+        async function onScanSuccess(decodedText) {
+            // DETENER ESCANER AL DETECTAR
             try {
-                toggleBusy(true, "Optimizando imagen...");
-                // AQUI ESTA EL TRUCO: 1600px de ancho para que el OCR lea bien
-                const base64 = await resizeImage(file, 1600, 0.7); 
-                
-                toggleBusy(true, "Subiendo y Analizando (OCR)...");
-                const resp = await sendToBackend({ 
-                    action: "process_image", 
-                    image_base64: base64 
-                });
-                
-                renderResult(resp);
-                setStatus(resp.ok ? "OCR Exitoso" : "Error OCR", resp.ok ? "ok" : "err");
+                await stopScanner();
+            } catch (e) { console.warn(e); }
+
+            const clean = buildSunatCleanUrl(decodedText) || decodedText;
+            if (clean.startsWith(SUNAT_PREFIX)) processUrlFlow(clean);
+            else setStatus("QR leído (no SUNAT)", "ok");
+        }
+
+
+
+        async function startScanner() {
+            setStatus("Iniciando cámara...");
+            if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+
+            const config = {
+                fps: 12,
+                qrbox: { width: 260, height: 260 },
+                formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+                experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+            };
+
+            try {
+                await html5QrCode.start(
+                    { facingMode: { exact: "environment" } },
+                    config,
+                    onScanSuccess,
+                    () => { }
+                );
+                setStatus("Cámara trasera activa", "ok");
             } catch (e) {
-                setStatus("Error", "err");
-                ui.output.textContent = e.message;
-            } finally {
+                try {
+                    await html5QrCode.start(
+                        { facingMode: "environment" },
+                        config,
+                        onScanSuccess,
+                        () => { }
+                    );
+                    setStatus("Cámara trasera activa", "ok");
+                } catch (e2) {
+                    setStatus("No se pudo iniciar cámara", "err");
+                    outEl.textContent = String(e2);
+                }
+            }
+        }
+
+        async function stopScanner() {
+            if (!html5QrCode) return;
+            try {
+                // Check if scanning using isScanning (if available) or internal state
+                await html5QrCode.stop();
+                await html5QrCode.clear();
+                setStatus("Detenido");
+            } catch (e) {
+                // Ignore stop errors if already stopped
+                console.warn(e);
+            }
+        }
+
+        initWebAppConfig();
+
+        btnStart.addEventListener("click", startScanner);
+        btnStop.addEventListener("click", stopScanner);
+
+        // Botón cancelar en modal
+        document.getElementById("btnCancel").addEventListener("click", () => {
+            if (currentRequest) {
+                currentRequest.cancel();
+            } else {
                 toggleBusy(false);
-                ui.fileInput.value = "";
+                setStatus("Cancelado", "err");
             }
         });
 
-        // --- HELPERS ---
-        async function sendToBackend(payload) {
-            const resp = await fetch(APP_URL, {
+
+        // === MANUAL PHOTO LOGIC ===
+        btnManual.addEventListener("click", () => fileInput.click());
+
+        fileInput.addEventListener("change", async () => {
+            if (fileInput.files.length === 0) return;
+            const file = fileInput.files[0];
+
+            if (busy) return;
+            
+            // OPTIMIZACION: Validar tamaño de archivo antes de procesar
+            const maxSizeMB = 10;
+            if (file.size > maxSizeMB * 1024 * 1024) {
+                setStatus("Imagen muy grande", "err");
+                outEl.textContent = `Error: La imagen supera ${maxSizeMB}MB`;
+                return;
+            }
+            
+            toggleBusy(true, "🧼 Preparando imagen para OCR...");
+            setStatus("Preparando imagen...");
+
+            try {
+                const prepared = await prepareImageForOcr_(file, {
+                    maxDimension: 1400,
+                    quality: 0.82,
+                    autoRotate: true,
+                    enhanceForOcr: true
+                });
+                const base64 = prepared.base64;
+                toggleBusy(true, "📤 Subiendo y OCR...");
+                setStatus("Subiendo y OCR...");
+
+                const resp = await postCall({
+                    action: "process_image",
+                    image_base64: base64,
+                    mime_type: "image/jpeg",
+                    use_openai_fallback: true
+                });
+
+                renderResponse(resp);
+
+            } catch (e) {
+                setStatus("Error Foto", "err");
+                outEl.innerText = "Error subiendo/procesando: " + e;
+            } finally {
+                toggleBusy(false);
+                fileInput.value = ""; // clear
+            }
+        });
+
+        async function postCall(payload) {
+            if (!APPS_SCRIPT_WEBAPP_URL) {
+                throw new Error("API no configurada");
+            }
+            const resp = await fetch(APPS_SCRIPT_WEBAPP_URL, {
                 method: "POST",
                 body: JSON.stringify(payload)
             });
-            return await resp.json();
+            if (!resp.ok) {
+                throw new Error("HTTP " + resp.status + " al llamar API");
+            }
+            const json = await resp.json();
+            return json;
         }
 
-        function resizeImage(file, maxWidth, quality) {
-            return new Promise((resolve) => {
+        // OPTIMIZACION: Extraer texto de PDF usando PDF.js (3-5s en lugar de 20-30s)
+        async function extractTextFromPdf_(blob) {
+            try {
+                const arrayBuffer = await blob.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                let fullText = "";
+                
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    const pageText = textContent.items.map(item => item.str).join(" ");
+                    fullText += pageText + "\n";
+                }
+                
+                return fullText;
+            } catch (e) {
+                throw new Error("Error extrayendo PDF: " + e.message);
+            }
+        }
+
+        function prepareImageForOcr_(file, options = {}) {
+            const maxDimension = Number(options.maxDimension || 1400);
+            const quality = Number(options.quality || 0.82);
+            const autoRotate = options.autoRotate !== false;
+            const enhanceForOcr = options.enhanceForOcr !== false;
+
+            return new Promise((resolve, reject) => {
                 const reader = new FileReader();
-                reader.onload = (e) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        const canvas = document.createElement("canvas");
-                        let w = img.width, h = img.height;
-                        if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
-                        canvas.width = w; canvas.height = h;
-                        const ctx = canvas.getContext("2d");
-                        ctx.fillStyle = "white"; ctx.fillRect(0,0,w,h);
-                        ctx.drawImage(img, 0, 0, w, h);
-                        resolve(canvas.toDataURL("image/jpeg", quality).split(",")[1]);
-                    };
-                    img.src = e.target.result;
-                };
                 reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const sourceWidth = img.width;
+                        const sourceHeight = img.height;
+                        const shouldRotate = autoRotate && sourceWidth > sourceHeight * 1.15;
+
+                        let targetWidth = shouldRotate ? sourceHeight : sourceWidth;
+                        let targetHeight = shouldRotate ? sourceWidth : sourceHeight;
+                        const longest = Math.max(targetWidth, targetHeight);
+                        const scale = longest > maxDimension ? (maxDimension / longest) : 1;
+                        targetWidth = Math.max(1, Math.round(targetWidth * scale));
+                        targetHeight = Math.max(1, Math.round(targetHeight * scale));
+
+                        const canvas = document.createElement("canvas");
+                        canvas.width = targetWidth;
+                        canvas.height = targetHeight;
+                        const ctx = canvas.getContext("2d");
+                        if (!ctx) {
+                            reject(new Error("No se pudo preparar el canvas"));
+                            return;
+                        }
+
+                        ctx.fillStyle = "#fff";
+                        ctx.fillRect(0, 0, targetWidth, targetHeight);
+
+                        if (shouldRotate) {
+                            ctx.translate(targetWidth, 0);
+                            ctx.rotate(Math.PI / 2);
+                            ctx.drawImage(
+                                img,
+                                0,
+                                0,
+                                Math.round(sourceWidth * scale),
+                                Math.round(sourceHeight * scale)
+                            );
+                        } else {
+                            ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+                        }
+
+                        if (enhanceForOcr) {
+                            enhanceCanvasForOcr_(ctx, targetWidth, targetHeight);
+                        }
+
+                        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+                        const base64 = dataUrl.split(",")[1];
+                        resolve({
+                            base64,
+                            meta: {
+                                rotated: shouldRotate,
+                                width: targetWidth,
+                                height: targetHeight
+                            }
+                        });
+                    };
+                    img.onerror = (e) => reject(e);
+                };
+                reader.onerror = (e) => reject(e);
             });
         }
 
-        async function extractPdfText(blob) {
-            const buf = await blob.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument(buf).promise;
-            let full = "";
-            for (let i=1; i<=pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const content = await page.getTextContent();
-                full += content.items.map(item => item.str).join(" ") + "\n";
+        function enhanceCanvasForOcr_(ctx, width, height) {
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+            const contrast = 1.35;
+
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                let gray = (0.299 * r) + (0.587 * g) + (0.114 * b);
+                gray = ((gray - 128) * contrast) + 128;
+                if (gray < 35) gray = 0;
+                if (gray > 245) gray = 255;
+                const v = Math.max(0, Math.min(255, Math.round(gray)));
+                data[i] = v;
+                data[i + 1] = v;
+                data[i + 2] = v;
             }
-            return full;
+
+            ctx.putImageData(imageData, 0, 0);
         }
 
-        function renderResult(resp) {
-            if (!resp.ok) {
-                ui.output.innerHTML = `<b style="color:red">${resp.error}</b>`;
+        function renderResponse(resp) {
+            if (!resp?.ok) {
+                setStatus("Error API", "err");
+                outEl.textContent = JSON.stringify(resp, null, 2);
                 return;
             }
+
+            if (resp.openAiUsed) setStatus("Guardado OK (IA)", "ok");
+            else setStatus("Guardado OK", "ok");
             const d = resp.data || {};
-            const items = d.ITEMS || [];
-            
-            let html = `<table>
-                <tr><th>Guía</th><td>${d.N_SERIE}-${d.N_DOCUMENTO}</td></tr>
-                <tr><th>Empresa</th><td>${d.EMPRESA}</td></tr>
-                <tr><th>RUC</th><td>${d.RUC}</td></tr>
-            </table>`;
-            
-            if(items.length) {
-                html += `<div style="margin-top:10px; font-weight:bold;">Items Detectados:</div>`;
-                items.forEach((it, idx) => {
-                    let sizes = Object.entries(it.SIZES || {}).map(([k,v]) => `${k}=${v}`).join(", ");
-                    html += `<div style="background:#fff; border:1px solid #ddd; padding:8px; margin-top:5px; border-radius:4px;">
-                        <b>#${idx+1}</b> ${it.TIPO}<br>
-                        Color: ${it.COLOR} | OP: ${it.OP}<br>
-                        <small>${sizes || "Sin desglose"}</small>
-                    </div>`;
-                });
-            } else {
-                 html += `<p style="color:orange">⚠️ No se detectaron items claros.</p>`;
+            const items = Array.isArray(d.ITEMS) ? d.ITEMS : [];
+            const firstItem = items[0] || {};
+            const tipo = d.TIPO || firstItem.TIPO || "";
+            const op = d.OP || firstItem.OP || "";
+            const color = d.COLOR || firstItem.COLOR || "";
+            const ocrSource = resp.ocrSource || "drive_ocr";
+            const fallbackError = resp.openAiError || "";
+
+            const sizeOrder = [
+                "0", "2", "4", "6", "8", "10", "12", "14", "16", "18", "20",
+                "XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL",
+                "XS/S", "S/M", "M/L", "L/XL", "XL/XXL",
+                "1X", "2XL", "3XL", "4XL", "5XL", "MT", "LT", "XLT", "XXLT"
+            ];
+
+            function formatSizeMap(sizeMap) {
+                if (!sizeMap || typeof sizeMap !== "object") return "Sin desglose";
+                const pairs = sizeOrder
+                    .map(sz => [sz, Number(sizeMap[sz] || 0)])
+                    .filter(([_, qty]) => Number.isFinite(qty) && qty > 0)
+                    .map(([sz, qty]) => `${sz}=${qty}`);
+                return pairs.length ? pairs.join(" ") : "Sin desglose";
             }
-            
-            // Debug texto crudo
-            html += `<details style="margin-top:15px"><summary>Ver Texto Raw</summary><pre>${resp.text || resp.fullText || ""}</pre></details>`;
-            
-            ui.output.innerHTML = html;
+
+            const itemBlocks = items.length
+                ? items.map((it, idx) => `
+                    <tr>
+                        <th style="text-align:left; border:1px solid #ddd; padding:4px;">ITEM ${idx + 1}</th>
+                        <td style="border:1px solid #ddd; padding:4px;">
+                            TIPO: ${it.TIPO || ""}<br>
+                            OP: ${it.OP || ""}<br>
+                            COLOR: ${it.COLOR || ""}<br>
+                            TALLAS: ${formatSizeMap(it.SIZES)}
+                        </td>
+                    </tr>
+                `).join("")
+                : `
+                    <tr>
+                        <th style="text-align:left; border:1px solid #ddd; padding:4px;">TALLAS</th>
+                        <td style="border:1px solid #ddd; padding:4px;">Sin desglose</td>
+                    </tr>
+                `;
+
+            outEl.innerHTML = `
+                <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:13px;">
+                    <tr style="background:#f0f0f0;"><th colspan="2" style="padding:6px; border:1px solid #ddd;">DATOS EXTRAIDOS</th></tr>
+                    <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">N GUIA</th><td style="border:1px solid #ddd; padding:4px;"><b>${d.N_SERIE || ""}-${d.N_DOCUMENTO || ""}</b></td></tr>
+                    <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">FECHA</th><td style="border:1px solid #ddd; padding:4px;">${d.FECHA || ""}</td></tr>
+                    <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">RUC</th><td style="border:1px solid #ddd; padding:4px;">${d.RUC || ""}</td></tr>
+                    <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">EMPRESA</th><td style="border:1px solid #ddd; padding:4px;">${d.EMPRESA || ""}</td></tr>
+                    <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">TIPO</th><td style="border:1px solid #ddd; padding:4px;">${tipo}</td></tr>
+                    <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">OP</th><td style="border:1px solid #ddd; padding:4px;">${op}</td></tr>
+                    <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">COLOR</th><td style="border:1px solid #ddd; padding:4px;">${color}</td></tr>
+                    <tr><th style="text-align:left; border:1px solid #ddd; padding:4px;">OCR MOTOR</th><td style="border:1px solid #ddd; padding:4px;">${ocrSource}</td></tr>
+                    ${itemBlocks}
+                    <tr style="background:#f9f9f9;">
+                        <th style="text-align:left; border:1px solid #ddd; padding:4px;">ARCHIVO</th>
+                        <td style="border:1px solid #ddd; padding:4px;"><a href="${resp.fileUrl || "#"}" target="_blank">Ver Archivo</a></td>
+                    </tr>
+                </table>
+                ${fallbackError ? `<div style="margin-top:8px; color:#b00020; font-size:12px;">Fallback IA no aplicado: ${fallbackError}</div>` : ""}
+
+                <details style="margin-top:10px; border:1px solid #eee; padding:8px; border-radius:6px;">
+                    <summary style="cursor:pointer; font-weight:bold; color:#555;">Ver Texto Completo (Raw)</summary>
+                    <pre style="white-space:pre-wrap; font-size:11px; color:#333; margin-top:5px;">${resp.fullText || resp.text || "Sin texto"}</pre>
+                </details>
+            `;
         }
+
+        // test rápido de ping
+        (async () => {
+            try {
+                console.log("🔗 API URL:", APPS_SCRIPT_WEBAPP_URL);
+                const r = await jsonpCall({ action: "ping" }, 20000);
+                if (r?.ok) setStatus("API OK ✓", "ok");
+                else setStatus("API falla", "err");
+            } catch (e) {
+                console.error("❌ API offline:", e.message);
+                setStatus("API offline", "err");
+            }
+        })();
     </script>
 </body>
+
 </html>
