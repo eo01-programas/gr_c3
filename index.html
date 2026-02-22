@@ -1,310 +1,271 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Escáner de Guías SUNAT (Local/Gratis)</title>
-    <!-- Tailwind CSS para los estilos -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Tesseract.js para el OCR gratuito en el cliente -->
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scanner SUNAT + Manual</title>
     <style>
-        /* Estilos adicionales para la cámara */
-        #video-container {
-            position: relative;
-            width: 100%;
-            height: 60vh;
-            background-color: #000;
-            overflow: hidden;
-            border-radius: 0.75rem;
-        }
-        #camera-feed {
-            width: 100%;
-            height: 100%;
-            object-fit: cover; /* Asegura que llene el contenedor sin deformarse */
-        }
-        .scanner-guide {
-            position: absolute;
-            top: 10%;
-            left: 5%;
-            width: 90%;
-            height: 80%;
-            border: 2px dashed rgba(255, 255, 255, 0.6);
-            border-radius: 8px;
-            pointer-events: none;
-            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
-        }
+        body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 16px; background:#f4f4f9; }
+        .card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        h2 { margin-top: 0; font-size: 1.2rem; color: #333; }
+        
+        /* Botones */
+        .btn { display: block; width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; margin-bottom: 8px; }
+        .btn-primary { background: #000; color: #fff; }
+        .btn-blue { background: #0066ff; color: #fff; }
+        .btn-stop { background: #ffebee; color: #b71c1c; }
+        
+        #reader { width: 100%; border-radius: 8px; overflow: hidden; background: #000; }
+        
+        /* Status Pill */
+        .status { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; background: #eee; color: #666; margin-bottom: 10px; }
+        .status.ok { background: #e8f5e9; color: #2e7d32; }
+        .status.err { background: #ffebee; color: #c62828; }
+        .status.busy { background: #e3f2fd; color: #1565c0; }
+
+        pre { white-space: pre-wrap; word-break: break-word; background: #fafafa; padding: 10px; border-radius: 6px; font-size: 0.8rem; color: #444; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { border: 1px solid #eee; padding: 6px; text-align: left; }
+        th { background: #f9f9f9; }
+
+        /* Loading Overlay */
+        .overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999; visibility: hidden; opacity: 0; transition: 0.2s; }
+        .overlay.active { visibility: visible; opacity: 1; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #ddd; border-top-color: #0066ff; border-radius: 50%; animation: spin 1s infinite linear; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans antialiased min-h-screen flex flex-col">
+<body>
 
-    <div class="max-w-2xl mx-auto w-full p-4 flex-1 flex flex-col">
+    <div class="card">
+        <h2>📷 Escáner Guías</h2>
+        <div id="status" class="status">Listo</div>
         
-        <!-- Cabecera -->
-        <header class="text-center mb-6 pt-4">
-            <h1 class="text-2xl font-bold text-blue-800">Escáner Guías SUNAT</h1>
-            <p class="text-sm text-gray-500">100% Local • Gratuito • Cámara Trasera</p>
-        </header>
-
-        <!-- VISTA 1: CÁMARA -->
-        <div id="view-camera" class="flex flex-col flex-1">
-            <div id="video-container" class="shadow-lg mb-4">
-                <!-- playsinline es crucial para que funcione en iOS -->
-                <video id="camera-feed" autoplay playsinline></video>
-                <!-- Guía visual para alinear el documento -->
-                <div class="scanner-guide"></div>
-            </div>
-            
-            <p class="text-center text-sm text-gray-600 mb-4">
-                Alinea la Guía de Remisión dentro del recuadro, asegúrate de tener buena iluminación y presiona capturar.
-            </p>
-
-            <button id="btn-capture" class="mt-auto w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg flex justify-center items-center gap-2 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                Capturar y Extraer Texto
-            </button>
-            <div id="camera-error" class="hidden mt-4 bg-red-100 text-red-700 p-3 rounded-lg text-sm text-center">
-                No se pudo acceder a la cámara. Verifica los permisos de tu navegador.
-            </div>
+        <div id="reader"></div>
+        
+        <div style="margin-top: 12px; display: flex; gap: 8px;">
+            <button id="btnScan" class="btn btn-primary">Escanear QR</button>
+            <button id="btnStop" class="btn btn-stop" style="display:none">Detener</button>
         </div>
 
-        <!-- VISTA 2: PROCESANDO (OCR) -->
-        <div id="view-processing" class="hidden flex-col items-center justify-center flex-1 py-12">
-            <div class="relative w-20 h-20 mb-6">
-                <svg class="animate-spin w-full h-full text-blue-200" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="#2563EB"></path>
-                </svg>
-                <div class="absolute top-0 left-0 w-full h-full flex items-center justify-center font-bold text-blue-600 text-xs" id="progress-percent">0%</div>
-            </div>
-            <h2 class="text-xl font-semibold text-gray-800 mb-2">Procesando Documento</h2>
-            <p id="progress-status" class="text-gray-500 text-sm text-center px-4">Iniciando motor OCR...</p>
-            <p class="text-xs text-gray-400 mt-6 text-center max-w-xs">
-                La primera vez puede tardar unos segundos mientras se descarga el modelo de lenguaje en español.
-            </p>
+        <div style="margin-top: 16px; border-top: 1px solid #eee; padding-top: 16px;">
+            <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none" />
+            <button id="btnManual" class="btn btn-blue">📸 Foto Manual (OCR)</button>
+            <small style="color:#666; display:block; text-align:center;">Usa esto si el QR no funciona</small>
         </div>
-
-        <!-- VISTA 3: RESULTADOS -->
-        <div id="view-result" class="hidden flex-col flex-1">
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex-1 flex flex-col">
-                <div class="flex justify-between items-center mb-3">
-                    <h3 class="font-semibold text-green-700 flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                        </svg>
-                        Extracción Completada
-                    </h3>
-                    <button id="btn-copy" class="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 py-1 px-3 rounded flex items-center gap-1 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                        Copiar
-                    </button>
-                </div>
-                
-                <textarea id="extracted-text" class="w-full flex-1 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" readonly></textarea>
-            </div>
-
-            <button id="btn-retake" class="mt-4 w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 rounded-xl shadow-md flex justify-center items-center gap-2 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Escanear Otro Documento
-            </button>
-        </div>
-
-        <!-- Canvas oculto para procesar la imagen -->
-        <canvas id="capture-canvas" class="hidden"></canvas>
     </div>
 
+    <div class="card">
+        <h2>Resultados</h2>
+        <div id="output">No hay datos recientes.</div>
+    </div>
+
+    <div id="overlay" class="overlay">
+        <div class="spinner"></div>
+        <p id="loadingMsg" style="margin-top:15px; font-weight:600; color:#333;">Procesando...</p>
+    </div>
+
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // Referencias al DOM
-            const video = document.getElementById('camera-feed');
-            const canvas = document.getElementById('capture-canvas');
-            const btnCapture = document.getElementById('btn-capture');
-            const btnRetake = document.getElementById('btn-retake');
-            const btnCopy = document.getElementById('btn-copy');
-            const textArea = document.getElementById('extracted-text');
-            const cameraError = document.getElementById('camera-error');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        // --- CONFIGURACIÓN ---
+        // TU URL ACTUALIZADA:
+        let APP_URL = "https://script.google.com/macros/s/AKfycbxvJLP5MGxgv8Zw8RvNtuJV8Wc6gSFNBnU0Ho6u5WaDaKCvYojpnieqmThKO8MRWK5P/exec"; 
+        
+        const SUNAT_PREFIX = "https://e-factura.sunat.gob.pe";
+        
+        const ui = {
+            status: document.getElementById("status"),
+            btnScan: document.getElementById("btnScan"),
+            btnStop: document.getElementById("btnStop"),
+            btnManual: document.getElementById("btnManual"),
+            fileInput: document.getElementById("fileInput"),
+            output: document.getElementById("output"),
+            overlay: document.getElementById("overlay"),
+            msg: document.getElementById("loadingMsg")
+        };
+
+        let scanner = null;
+
+        function setStatus(msg, type="") {
+            ui.status.textContent = msg;
+            ui.status.className = "status " + type;
+        }
+
+        function toggleBusy(isBusy, text="Cargando...") {
+            ui.msg.textContent = text;
+            ui.overlay.classList.toggle("active", isBusy);
+        }
+
+        // --- 1. QR SCANNER LOGIC ---
+        ui.btnScan.addEventListener("click", () => {
+            if(!scanner) scanner = new Html5Qrcode("reader");
+            ui.btnScan.style.display = "none";
+            ui.btnStop.style.display = "block";
             
-            // Vistas
-            const viewCamera = document.getElementById('view-camera');
-            const viewProcessing = document.getElementById('view-processing');
-            const viewResult = document.getElementById('view-result');
-            
-            // Elementos de progreso
-            const progressStatus = document.getElementById('progress-status');
-            const progressPercent = document.getElementById('progress-percent');
-
-            let stream = null;
-
-            // 1. INICIAR LA CÁMARA TRASERA
-            async function startCamera() {
-                try {
-                    cameraError.classList.add('hidden');
-                    // Solicitamos específicamente la cámara trasera (environment)
-                    stream = await navigator.mediaDevices.getUserMedia({
-                        video: { 
-                            facingMode: "environment",
-                            width: { ideal: 1920 }, // Buscamos alta resolución para mejor OCR
-                            height: { ideal: 1080 }
-                        },
-                        audio: false
-                    });
-                    video.srcObject = stream;
-                } catch (err) {
-                    console.error("Error al acceder a la cámara:", err);
-                    cameraError.classList.remove('hidden');
-                    // Fallback: si falla (por ejemplo en PC sin cámara trasera), intentamos cualquier cámara
-                    try {
-                        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-                        video.srcObject = stream;
-                        cameraError.classList.add('hidden');
-                    } catch (fallbackErr) {
-                        cameraError.textContent = "No se pudo acceder a ninguna cámara. Verifica los permisos.";
-                    }
-                }
-            }
-
-            // 2. DETENER LA CÁMARA
-            function stopCamera() {
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
-                }
-            }
-
-            // 3. CAMBIAR ENTRE VISTAS
-            function showView(viewName) {
-                viewCamera.classList.add('hidden');
-                viewProcessing.classList.add('hidden');
-                viewResult.classList.add('hidden');
-
-                if (viewName === 'camera') {
-                    viewCamera.classList.remove('hidden');
-                    viewCamera.classList.add('flex');
-                    startCamera();
-                } else if (viewName === 'processing') {
-                    viewProcessing.classList.remove('hidden');
-                    viewProcessing.classList.add('flex');
-                    stopCamera();
-                } else if (viewName === 'result') {
-                    viewResult.classList.remove('hidden');
-                    viewResult.classList.add('flex');
-                }
-            }
-
-            // 4. MEJORAR IMAGEN (PRE-PROCESAMIENTO PARA OCR)
-            // Tesseract funciona mucho mejor con imágenes en alto contraste y escala de grises
-            function preprocessImage(ctx, width, height) {
-                const imageData = ctx.getImageData(0, 0, width, height);
-                const data = imageData.data;
-                
-                for (let i = 0; i < data.length; i += 4) {
-                    // Convertir a escala de grises
-                    const avg = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-                    
-                    // Aumentar contraste artificialmente (Binarización suave)
-                    // Si el pixel es oscuro, lo hacemos más negro; si es claro, más blanco.
-                    const contrast = 1.5; 
-                    const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-                    let newValue = factor * (avg - 128) + 128;
-                    
-                    // Limitar entre 0 y 255
-                    newValue = Math.max(0, Math.min(255, newValue));
-
-                    data[i]     = newValue; // Red
-                    data[i + 1] = newValue; // Green
-                    data[i + 2] = newValue; // Blue
-                    // data[i+3] es el Alpha, lo dejamos igual
-                }
-                
-                ctx.putImageData(imageData, 0, 0);
-            }
-
-            // 5. CAPTURAR Y EJECUTAR OCR
-            btnCapture.addEventListener('click', async () => {
-                if (!video.videoWidth) return;
-
-                // Configurar el canvas con la resolución del video
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                const ctx = canvas.getContext('2d');
-                
-                // Dibujar el frame actual del video en el canvas
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                
-                // Aplicar pre-procesamiento para ayudar al OCR gratuito
-                preprocessImage(ctx, canvas.width, canvas.height);
-
-                // Obtener la imagen procesada
-                const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-
-                // Cambiar a vista de procesamiento
-                showView('processing');
-                progressPercent.textContent = '0%';
-                progressStatus.textContent = 'Inicializando Tesseract...';
-
-                try {
-                    // Inicializar Tesseract.js
-                    const worker = await Tesseract.createWorker('spa', 1, {
-                        logger: m => {
-                            console.log(m);
-                            if (m.status === 'recognizing text') {
-                                const p = Math.floor(m.progress * 100);
-                                progressPercent.textContent = `${p}%`;
-                                progressStatus.textContent = 'Leyendo documento...';
-                            } else {
-                                progressStatus.textContent = m.status === 'loading tesseract core' ? 'Cargando motor...' : 
-                                                           m.status === 'loading language traineddata' ? 'Cargando idioma español...' : 
-                                                           'Preparando imagen...';
-                            }
-                        }
-                    });
-
-                    // Extraer texto
-                    const { data: { text } } = await worker.recognize(imageDataUrl);
-                    
-                    // Limpiar el texto de múltiples espacios en blanco o líneas vacías consecutivas
-                    const cleanedText = text.replace(/\n\s*\n/g, '\n\n').trim();
-
-                    // Mostrar resultado
-                    textArea.value = cleanedText || "No se detectó texto en la imagen. Intenta con mejor iluminación.";
-                    
-                    await worker.terminate();
-                    showView('result');
-
-                } catch (error) {
-                    console.error("Error en OCR:", error);
-                    textArea.value = "Ocurrió un error al procesar el documento. Asegúrate de tener conexión a internet la primera vez para descargar el modelo.";
-                    showView('result');
-                }
+            scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, 
+                (decodedText) => {
+                    handleQrDetected(decodedText);
+                },
+                (err) => {}
+            ).catch(err => {
+                setStatus("Error cámara: " + err, "err");
+                stopScanner();
             });
-
-            // 6. VOLVER A INTENTAR
-            btnRetake.addEventListener('click', () => {
-                showView('camera');
-            });
-
-            // 7. COPIAR PORTAPAPELES
-            btnCopy.addEventListener('click', () => {
-                textArea.select();
-                document.execCommand('copy');
-                
-                const originalText = btnCopy.innerHTML;
-                btnCopy.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg> ¡Copiado!`;
-                
-                setTimeout(() => {
-                    btnCopy.innerHTML = originalText;
-                }, 2000);
-            });
-
-            // Iniciar aplicación
-            showView('camera');
         });
+
+        ui.btnStop.addEventListener("click", stopScanner);
+
+        function stopScanner() {
+            if(scanner) {
+                scanner.stop().then(() => scanner.clear()).catch(console.error);
+            }
+            ui.btnScan.style.display = "block";
+            ui.btnStop.style.display = "none";
+        }
+
+        async function handleQrDetected(text) {
+            stopScanner();
+            let cleanUrl = text;
+            // Limpieza básica de URL Sunat
+            if (text.includes("hashqr=")) {
+                const token = text.split("hashqr=")[1];
+                cleanUrl = SUNAT_PREFIX + "/v1/contribuyente/gre/comprobantes/descargaqr?hashqr=" + token;
+            }
+
+            if(!cleanUrl.includes("sunat.gob.pe")) {
+                setStatus("QR leído pero NO es SUNAT", "err");
+                ui.output.textContent = text;
+                return;
+            }
+
+            // PROCESO QR: 1. Descargar PDF (Frontend) -> 2. Extraer Texto -> 3. Enviar a Apps Script
+            try {
+                toggleBusy(true, "Descargando PDF SUNAT...");
+                const blob = await fetch(cleanUrl).then(r => r.blob());
+                
+                toggleBusy(true, "Leyendo PDF...");
+                const pdfText = await extractPdfText(blob);
+                
+                toggleBusy(true, "Guardando datos...");
+                const resp = await sendToBackend({ action: "process_text", text: pdfText, url: cleanUrl });
+                
+                renderResult(resp);
+                setStatus("Guardado OK", "ok");
+            } catch (e) {
+                setStatus("Error", "err");
+                ui.output.textContent = e.message;
+            } finally {
+                toggleBusy(false);
+            }
+        }
+
+        // --- 2. MANUAL PHOTO LOGIC ---
+        ui.btnManual.addEventListener("click", () => ui.fileInput.click());
+        
+        ui.fileInput.addEventListener("change", async () => {
+            if (ui.fileInput.files.length === 0) return;
+            const file = ui.fileInput.files[0];
+            
+            try {
+                toggleBusy(true, "Optimizando imagen...");
+                // AQUI ESTA EL TRUCO: 1600px de ancho para que el OCR lea bien
+                const base64 = await resizeImage(file, 1600, 0.7); 
+                
+                toggleBusy(true, "Subiendo y Analizando (OCR)...");
+                const resp = await sendToBackend({ 
+                    action: "process_image", 
+                    image_base64: base64 
+                });
+                
+                renderResult(resp);
+                setStatus(resp.ok ? "OCR Exitoso" : "Error OCR", resp.ok ? "ok" : "err");
+            } catch (e) {
+                setStatus("Error", "err");
+                ui.output.textContent = e.message;
+            } finally {
+                toggleBusy(false);
+                ui.fileInput.value = "";
+            }
+        });
+
+        // --- HELPERS ---
+        async function sendToBackend(payload) {
+            const resp = await fetch(APP_URL, {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+            return await resp.json();
+        }
+
+        function resizeImage(file, maxWidth, quality) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement("canvas");
+                        let w = img.width, h = img.height;
+                        if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+                        canvas.width = w; canvas.height = h;
+                        const ctx = canvas.getContext("2d");
+                        ctx.fillStyle = "white"; ctx.fillRect(0,0,w,h);
+                        ctx.drawImage(img, 0, 0, w, h);
+                        resolve(canvas.toDataURL("image/jpeg", quality).split(",")[1]);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function extractPdfText(blob) {
+            const buf = await blob.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(buf).promise;
+            let full = "";
+            for (let i=1; i<=pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                full += content.items.map(item => item.str).join(" ") + "\n";
+            }
+            return full;
+        }
+
+        function renderResult(resp) {
+            if (!resp.ok) {
+                ui.output.innerHTML = `<b style="color:red">${resp.error}</b>`;
+                return;
+            }
+            const d = resp.data || {};
+            const items = d.ITEMS || [];
+            
+            let html = `<table>
+                <tr><th>Guía</th><td>${d.N_SERIE}-${d.N_DOCUMENTO}</td></tr>
+                <tr><th>Empresa</th><td>${d.EMPRESA}</td></tr>
+                <tr><th>RUC</th><td>${d.RUC}</td></tr>
+            </table>`;
+            
+            if(items.length) {
+                html += `<div style="margin-top:10px; font-weight:bold;">Items Detectados:</div>`;
+                items.forEach((it, idx) => {
+                    let sizes = Object.entries(it.SIZES || {}).map(([k,v]) => `${k}=${v}`).join(", ");
+                    html += `<div style="background:#fff; border:1px solid #ddd; padding:8px; margin-top:5px; border-radius:4px;">
+                        <b>#${idx+1}</b> ${it.TIPO}<br>
+                        Color: ${it.COLOR} | OP: ${it.OP}<br>
+                        <small>${sizes || "Sin desglose"}</small>
+                    </div>`;
+                });
+            } else {
+                 html += `<p style="color:orange">⚠️ No se detectaron items claros.</p>`;
+            }
+            
+            // Debug texto crudo
+            html += `<details style="margin-top:15px"><summary>Ver Texto Raw</summary><pre>${resp.text || resp.fullText || ""}</pre></details>`;
+            
+            ui.output.innerHTML = html;
+        }
     </script>
 </body>
 </html>
