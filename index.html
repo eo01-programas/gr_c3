@@ -1,1668 +1,1373 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>GRE SUNAT | Extractor (100% Web)</title>
-  <style>
-    :root{
-      --bg:#0b1220;
-      --card:#0f1a2e;
-      --muted:#9fb3c8;
-      --text:#e6eef7;
-      --line:rgba(255,255,255,.10);
-      --accent:#4aa3ff;
-      --good:#1fbf75;
-      --bad:#ff5a6a;
-      --warn:#ffd166;
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background: radial-gradient(1200px 800px at 10% 10%, rgba(74,163,255,.18), transparent 60%),
-                  radial-gradient(1000px 700px at 90% 10%, rgba(31,191,117,.12), transparent 55%),
-                  var(--bg);
-      color:var(--text);
-    }
-    header{
-      padding:16px 16px 6px;
-      position: sticky;
-      top:0;
-      background: linear-gradient(to bottom, rgba(11,18,32,.92), rgba(11,18,32,.65));
-      backdrop-filter: blur(8px);
-      border-bottom:1px solid var(--line);
-      z-index: 5;
-    }
-    h1{margin:0;font-size:18px;letter-spacing:.2px}
-    .sub{margin:6px 0 0;color:var(--muted);font-size:12.5px}
-    main{padding:14px 16px 28px;max-width:1100px;margin:0 auto}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0d1117">
+  <title>GRE SUNAT | Extractor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
 
-    .grid{display:grid;grid-template-columns:1fr;gap:12px}
-    @media (min-width: 980px){
-      .grid{grid-template-columns: 1.2fr .8fr}
-    }
+<style>
+/* ═══════════════════════════════════════════════════════════
+   GRE SUNAT EXTRACTOR — DARK INDUSTRIAL THEME
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --bg-base:        #0d1117;
+  --bg-surface:     #161b22;
+  --bg-raised:      #1f2937;
+  --bg-card:        #21262d;
+  --border:         #30363d;
+  --border-light:   #3d444d;
+  --amber:          #f59e0b;
+  --amber-dim:      #b45309;
+  --amber-glow:     rgba(245,158,11,0.15);
+  --amber-glow2:    rgba(245,158,11,0.08);
+  --text-primary:   #e6edf3;
+  --text-secondary: #8b949e;
+  --text-dim:       #484f58;
+  --green:          #3fb950;
+  --red:            #f85149;
+  --blue:           #58a6ff;
+  --radius:         6px;
+  --radius-lg:      10px;
+  --transition:     0.18s ease;
+  --font-ui:        'Barlow', system-ui, sans-serif;
+  --font-mono:      'Space Mono', monospace;
+  --font-head:      'Barlow Condensed', 'Barlow', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%; background: var(--bg-base); color: var(--text-primary);
+  font-family: var(--font-ui); font-size: 15px; line-height: 1.55;
+  overscroll-behavior: none;
+}
+.hidden { display: none !important; }
+.mt-sm { margin-top: 12px; }
+.badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 22px; padding: 0 6px;
+  background: var(--amber-glow); border: 1px solid var(--amber-dim);
+  color: var(--amber); border-radius: 20px;
+  font-size: 11px; font-family: var(--font-mono); font-weight: 700;
+}
 
-    .card{
-      border:1px solid var(--line);
-      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
-      border-radius:16px;
-      padding:12px;
-      box-shadow: 0 8px 28px rgba(0,0,0,.25);
-    }
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    .row.space{justify-content:space-between}
+/* ─── MODAL ─── */
+.modal {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.78);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; backdrop-filter: blur(4px);
+}
+.modal-content {
+  background: var(--bg-card); border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg); padding: 32px 28px;
+  max-width: 360px; width: 100%; text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+.modal-fallback { text-align: left; max-width: 420px; }
+.modal-fallback h3 {
+  font-family: var(--font-head); font-size: 20px;
+  color: var(--amber); margin-bottom: 10px; letter-spacing: 0.5px;
+}
+.fallback-hint { color: var(--text-secondary); font-size: 13px; margin-bottom: 16px; }
+.fallback-url {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--text-dim); background: var(--bg-base);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 8px; margin-bottom: 16px; word-break: break-all;
+  max-height: 60px; overflow-y: auto;
+}
+.fallback-actions { display: flex; flex-direction: column; gap: 10px; }
+.spinner {
+  width: 44px; height: 44px; margin: 0 auto 18px;
+  border: 3px solid var(--border-light); border-top-color: var(--amber);
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.modal-stage {
+  font-family: var(--font-head); font-size: 17px; font-weight: 700;
+  color: var(--text-primary); letter-spacing: 0.5px; margin-bottom: 14px;
+}
+.modal-progress-bar {
+  height: 4px; background: var(--bg-raised);
+  border-radius: 2px; overflow: hidden; margin-bottom: 8px;
+}
+.modal-progress-fill { height: 100%; background: var(--amber); transition: width 0.3s ease; }
+.modal-progress-label {
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--text-secondary); margin-bottom: 20px;
+}
 
-    .btn{
-      border:1px solid var(--line);
-      background: rgba(255,255,255,.04);
-      color:var(--text);
-      padding:11px 12px;
-      border-radius:12px;
-      cursor:pointer;
-      font-weight:650;
-      letter-spacing:.2px;
-      transition:.15s transform, .15s background;
-      user-select:none;
-    }
-    .btn:active{transform: translateY(1px)}
-    .btn.primary{border-color: rgba(74,163,255,.45); background: rgba(74,163,255,.14)}
-    .btn.good{border-color: rgba(31,191,117,.45); background: rgba(31,191,117,.12)}
-    .btn.bad{border-color: rgba(255,90,106,.45); background: rgba(255,90,106,.12)}
-    .btn.wide{width:100%;justify-content:center;display:flex;gap:10px;align-items:center}
+/* ─── BUTTONS ─── */
+button, .btn-primary, .btn-secondary, .btn-cancel, .btn-danger, .btn-tool, .file-label {
+  cursor: pointer; border: none; border-radius: var(--radius);
+  font-family: var(--font-ui); font-weight: 600; font-size: 14px;
+  line-height: 1; transition: var(--transition); text-decoration: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 6px; padding: 11px 18px;
+}
+.btn-primary { background: var(--amber); color: #000; }
+.btn-primary:hover { background: #fbbf24; }
+.btn-primary:active { background: var(--amber-dim); }
+.btn-secondary {
+  background: var(--bg-raised); color: var(--text-primary);
+  border: 1px solid var(--border-light);
+}
+.btn-secondary:hover { border-color: var(--amber-dim); color: var(--amber); }
+.btn-cancel {
+  background: transparent; color: var(--text-secondary);
+  border: 1px solid var(--border); font-size: 13px; padding: 9px 16px; width: 100%;
+}
+.btn-cancel:hover { background: var(--bg-raised); color: var(--red); border-color: var(--red); }
+.btn-danger {
+  background: transparent; color: var(--red);
+  border: 1px solid rgba(248,81,73,0.35);
+}
+.btn-danger:hover { background: rgba(248,81,73,0.12); border-color: var(--red); }
+.btn-sm { padding: 7px 13px; font-size: 12px; }
+.btn-wide { width: 100%; }
+.btn-tool {
+  background: var(--bg-raised); color: var(--text-secondary);
+  border: 1px solid var(--border); font-size: 12px; padding: 7px 12px;
+}
+.btn-tool:hover { color: var(--amber); border-color: var(--amber-dim); }
+.file-label {
+  background: var(--amber); color: #000; padding: 11px 18px;
+  text-align: center; cursor: pointer;
+}
+.file-label:hover { background: #fbbf24; }
+.btn-icon-tool {
+  background: transparent; color: var(--text-secondary);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 7px 10px; font-size: 16px;
+}
+.btn-icon-tool:hover { color: var(--amber); border-color: var(--amber-dim); }
 
-    .pill{
-      display:inline-flex;gap:8px;align-items:center;
-      padding:6px 10px;
-      border-radius:999px;
-      border:1px solid var(--line);
-      color:var(--muted);
-      font-size:12px;
-    }
-    .dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.25)}
-    .pill.ok{color: rgba(31,191,117,.95); border-color: rgba(31,191,117,.25)}
-    .pill.ok .dot{background: var(--good)}
-    .pill.err{color: rgba(255,90,106,.95); border-color: rgba(255,90,106,.25)}
-    .pill.err .dot{background: var(--bad)}
-    .pill.warn{color: rgba(255,209,102,.95); border-color: rgba(255,209,102,.25)}
-    .pill.warn .dot{background: var(--warn)}
+/* ─── HEADER ─── */
+.app-header {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 2px 20px rgba(0,0,0,0.4);
+}
+.header-brand { display: flex; align-items: center; gap: 12px; }
+.header-logo { font-size: 28px; color: var(--amber); line-height: 1; text-shadow: 0 0 20px var(--amber-glow); }
+.header-text h1 {
+  font-family: var(--font-head); font-size: 20px; font-weight: 700;
+  letter-spacing: 2px; color: var(--amber); line-height: 1.1;
+}
+.header-sub { font-size: 10px; color: var(--text-dim); letter-spacing: 0.5px; text-transform: uppercase; }
+.header-tools { display: flex; gap: 8px; }
 
-    .muted{color:var(--muted);font-size:12.5px}
-    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace}
-    .small{font-size:12px}
+/* ─── MAIN ─── */
+.app-main {
+  max-width: 720px; margin: 0 auto;
+  padding: 16px 12px 60px;
+  display: flex; flex-direction: column; gap: 16px;
+}
 
-    input[type="text"], input[type="file"], textarea, select{
-      width:100%;
-      border:1px solid var(--line);
-      background: rgba(0,0,0,.18);
-      color: var(--text);
-      padding:10px 10px;
-      border-radius:12px;
-      outline:none;
-    }
-    textarea{min-height:90px;resize:vertical}
+/* ─── ACTION SECTION ─── */
+.action-section { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.btn-action {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; padding: 22px 12px;
+  background: var(--bg-card); border: 1px solid var(--border-light) !important;
+  border-radius: var(--radius-lg); cursor: pointer; transition: var(--transition);
+  text-align: center; position: relative; overflow: hidden;
+}
+.btn-action::before {
+  content: ''; position: absolute; inset: 0;
+  background: var(--amber-glow2); opacity: 0; transition: opacity 0.3s;
+}
+.btn-action:hover::before { opacity: 1; }
+.btn-action:hover { border-color: var(--amber-dim) !important; transform: translateY(-1px); }
+.btn-action:active { transform: translateY(0); }
+.btn-icon-big { font-size: 28px; color: var(--amber); text-shadow: 0 0 15px var(--amber-glow); }
+.btn-label { font-family: var(--font-head); font-size: 14px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.5px; }
+.btn-sub { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
 
-    .hr{height:1px;background:var(--line);margin:10px 0}
+/* ─── QR SCANNER ─── */
+.scanner-area {
+  background: var(--bg-card); border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg); overflow: hidden;
+}
+.scanner-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; border-bottom: 1px solid var(--border);
+}
+.scanner-title {
+  font-family: var(--font-head); font-size: 13px; font-weight: 600;
+  color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.8px;
+}
+.qr-reader-container { background: #000; }
+#qr-reader { width: 100% !important; border: none !important; }
+#qr-reader video { width: 100% !important; border-radius: 0 !important; }
+#qr-reader__scan_region { border: none !important; }
+.last-url { padding: 10px 14px; border-top: 1px solid var(--border); }
+.url-label { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 2px; }
+.url-text { font-family: var(--font-mono); font-size: 10px; color: var(--blue); word-break: break-all; }
 
-    #reader{
-      width: min(520px, 100%);
-      margin: 0 auto;
-      border-radius: 14px;
-      overflow:hidden;
-      border: 1px solid rgba(255,255,255,.10);
-    }
+/* ─── PHOTO AREA ─── */
+.photo-area {
+  background: var(--bg-card); border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg); overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.photo-controls-top {
+  display: flex; gap: 8px; padding: 10px 12px;
+  border-bottom: 1px solid var(--border); flex-wrap: wrap;
+}
+.photo-preview-container {
+  position: relative; background: #000; min-height: 200px;
+  display: flex; align-items: center; justify-content: center;
+}
+.photo-canvas { max-width: 100%; max-height: 450px; display: block; }
+.photo-controls-bottom { padding: 10px 12px; border-top: 1px solid var(--border); }
 
-    table{border-collapse:collapse;width:100%}
-    th,td{border:1px solid var(--line);padding:8px;vertical-align:top}
-    th{background: rgba(255,255,255,.04);text-align:left;font-size:12.5px}
-    td{font-size:12.5px}
+/* ─── RESULTS PANEL ─── */
+.results-panel {
+  background: var(--bg-card); border: 1px solid var(--amber-dim);
+  border-radius: var(--radius-lg); overflow: hidden;
+  box-shadow: 0 0 30px var(--amber-glow2);
+}
+.panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+}
+.panel-title {
+  font-family: var(--font-head); font-size: 16px; font-weight: 700;
+  letter-spacing: 1px; color: var(--text-primary);
+  display: flex; align-items: center; gap: 8px;
+}
+.panel-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.result-source-badge {
+  margin: 10px 14px 0; display: inline-block; padding: 3px 10px;
+  font-size: 10px; font-family: var(--font-mono); font-weight: 700;
+  letter-spacing: 1px; border-radius: 20px;
+  border: 1px solid var(--amber-dim); color: var(--amber); background: var(--amber-glow2);
+}
+.result-section { padding: 14px; border-bottom: 1px solid var(--border); }
+.result-section:last-of-type { border-bottom: none; }
+.section-label {
+  font-family: var(--font-head); font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--text-dim); margin-bottom: 10px;
+}
 
-    details{border:1px solid var(--line);border-radius:12px;padding:10px;background:rgba(0,0,0,.16)}
-    summary{cursor:pointer;font-weight:650}
+/* ─── DATA TABLES ─── */
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th, .data-table td {
+  padding: 7px 10px; text-align: left;
+  border-bottom: 1px solid var(--border); vertical-align: top;
+}
+.data-table th {
+  font-family: var(--font-head); font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1px;
+  color: var(--text-dim); background: var(--bg-surface); white-space: nowrap;
+}
+.data-table td { color: var(--text-primary); }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--bg-raised); }
+.data-table .meta-key { color: var(--text-secondary); font-size: 12px; white-space: nowrap; min-width: 130px; font-weight: 500; }
+.data-table .meta-val { font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); }
+.data-table input.meta-edit {
+  background: var(--bg-base); border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text-primary);
+  font-family: var(--font-mono); font-size: 12px;
+  padding: 3px 7px; width: 100%;
+}
+.data-table input.meta-edit:focus { outline: none; border-color: var(--amber); }
+.table-scroll { overflow-x: auto; }
+.items-table { min-width: 520px; }
+.items-table .item-desc { max-width: 180px; }
+.sizes-cell { font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); line-height: 1.8; }
+.size-tag {
+  display: inline-block; margin: 1px 3px;
+  background: var(--bg-raised); border: 1px solid var(--border-light);
+  border-radius: 3px; padding: 1px 5px;
+  font-size: 10px; font-family: var(--font-mono); color: var(--amber); white-space: nowrap;
+}
+.qty-cell { font-family: var(--font-mono); font-weight: 700; color: var(--amber); font-size: 14px; }
+.cat-badge {
+  display: inline-block; padding: 2px 7px;
+  font-size: 10px; font-weight: 700;
+  border-radius: 3px; letter-spacing: 0.5px;
+}
+.cat-PRIMERAS { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+.cat-SEGUNDAS { background: rgba(251,146,60,0.15); color: #fb923c; border: 1px solid rgba(251,146,60,0.3); }
+.cat-MANCHAS  { background: rgba(248,81,73,0.15); color: #f87171; border: 1px solid rgba(248,81,73,0.3); }
+.cat-TALLAS   { background: rgba(63,185,80,0.15); color: #4ade80; border: 1px solid rgba(63,185,80,0.3); }
+.cat-other    { background: var(--bg-raised); color: var(--text-secondary); border: 1px solid var(--border); }
+.raw-details { border-top: 1px solid var(--border); }
+.raw-details summary { padding: 10px 14px; font-size: 12px; color: var(--text-dim); cursor: pointer; user-select: none; }
+.raw-details summary:hover { color: var(--text-secondary); }
+.raw-text {
+  padding: 12px 14px; font-family: var(--font-mono); font-size: 10px;
+  color: var(--text-dim); line-height: 1.6; white-space: pre-wrap; word-break: break-all;
+  background: var(--bg-base); max-height: 250px; overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
 
-    /* Modal */
-    .overlay{
-      position:fixed; inset:0;
-      background: rgba(10,16,28,.72);
-      backdrop-filter: blur(8px);
-      display:none;
-      align-items:center;
-      justify-content:center;
-      z-index: 100;
-      padding:16px;
-    }
-    .overlay.show{display:flex}
-    .modal{
-      width:min(520px, 100%);
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(15,26,46,.92);
-      box-shadow: 0 18px 60px rgba(0,0,0,.45);
-      padding:14px;
-    }
-    .spinner{
-      width:44px;height:44px;border-radius:999px;
-      border:4px solid rgba(74,163,255,.25);
-      border-top-color: rgba(74,163,255,.95);
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin{to{transform:rotate(360deg)}}
+/* ─── HISTORY ─── */
+.history-panel {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); overflow: hidden;
+}
+.history-list { display: flex; flex-direction: column; }
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text-dim); }
+.empty-icon { font-size: 32px; display: block; margin-bottom: 12px; opacity: 0.3; }
+.empty-state p { font-size: 13px; line-height: 1.6; }
+.history-item {
+  padding: 12px 14px; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background 0.15s;
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.history-item:last-child { border-bottom: none; }
+.history-item:hover { background: var(--bg-raised); }
+.history-item-icon { font-size: 18px; flex-shrink: 0; margin-top: 2px; opacity: 0.6; }
+.history-item-main { flex: 1; min-width: 0; }
+.history-item-guia { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--amber); }
+.history-item-dest { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.history-item-date { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); flex-shrink: 0; }
+.history-item-del {
+  background: transparent; border: none; color: var(--text-dim);
+  font-size: 16px; cursor: pointer; padding: 2px 6px; flex-shrink: 0; border-radius: 4px;
+}
+.history-item-del:hover { color: var(--red); background: rgba(248,81,73,0.1); }
 
-    .kpi{display:grid;grid-template-columns: 1fr 1fr;gap:10px}
-    .kpi .box{border:1px solid var(--line);border-radius:14px;padding:10px;background:rgba(0,0,0,.14)}
-    .kpi .box b{display:block;font-size:12px;color:var(--muted)}
-    .kpi .box span{display:block;margin-top:4px;font-weight:750}
+/* ─── FOOTER ─── */
+.app-footer { text-align: center; padding: 16px; font-size: 10px; color: var(--text-dim); letter-spacing: 0.5px; text-transform: uppercase; }
 
-    .previewWrap{display:grid;grid-template-columns:1fr;gap:10px}
-    @media (min-width: 980px){.previewWrap{grid-template-columns: 1fr 1fr}}
-    .imgbox{border:1px solid var(--line);border-radius:14px;padding:10px;background:rgba(0,0,0,.14)}
-    canvas{max-width:100%;height:auto;border-radius:12px;border:1px solid rgba(255,255,255,.10)}
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-surface); }
+::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
 
-    .dangerNote{border-left:4px solid rgba(255,90,106,.7); padding:8px 10px; background: rgba(255,90,106,.08); border-radius:12px}
-    .goodNote{border-left:4px solid rgba(31,191,117,.7); padding:8px 10px; background: rgba(31,191,117,.08); border-radius:12px}
-    .warnNote{border-left:4px solid rgba(255,209,102,.8); padding:8px 10px; background: rgba(255,209,102,.08); border-radius:12px}
-
-    .histItem{border:1px solid var(--line);border-radius:14px;padding:10px;background:rgba(0,0,0,.14);margin-top:8px}
-    .histTop{display:flex;gap:10px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
-    .histTop b{font-size:13px}
-    .chip{display:inline-flex;gap:6px;align-items:center;padding:4px 8px;border-radius:999px;border:1px solid var(--line);font-size:11.5px;color:var(--muted)}
-
-    .footerBar{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
-  </style>
+/* ─── RESPONSIVE ─── */
+@media (max-width: 480px) {
+  .action-section { grid-template-columns: 1fr; }
+  .btn-action { flex-direction: row; gap: 14px; padding: 16px 14px; text-align: left; }
+  .btn-icon-big { font-size: 22px; }
+  .btn-sub { display: none; }
+  .panel-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .panel-actions { width: 100%; }
+  .panel-actions button { flex: 1; }
+}
+</style>
 </head>
-
 <body>
-<header>
-  <h1>GRE SUNAT | Extractor (100% Web)</h1>
-  <div class="sub">Escanea QR SUNAT o toma foto de guía manual. Procesa PDF (pdf.js) y OCR (Tesseract) local en tu navegador. Sin backend.</div>
-</header>
 
-<main>
-  <div class="grid">
-
-    <!-- LEFT: Capture + Results -->
-    <section class="card">
-      <div class="row space">
-        <div class="row">
-          <span id="status" class="pill"><span class="dot"></span><span id="statusText">Listo</span></span>
-          <span class="muted small">Tip: En móvil, usa Chrome y permite cámara.</span>
-        </div>
-        <button id="btnSelfTest" class="btn">🧪 Self-test parser</button>
-      </div>
-
-      <div class="hr"></div>
-
-      <div class="row" style="gap:12px">
-        <button id="btnStartQR" class="btn primary wide">📷 Escanear QR SUNAT</button>
-        <button id="btnStopQR" class="btn wide">⏹️ Detener cámara</button>
-      </div>
-
-      <div style="height:10px"></div>
-      <div id="reader"></div>
-
-      <div style="height:12px"></div>
-
-      <div class="warnNote muted">
-        <b>Nota CORS:</b> a veces SUNAT bloquea la descarga directa desde navegadores. Si falla, la app te dará un botón para <b>abrir SUNAT</b> y luego <b>subir el PDF descargado</b> para procesarlo localmente.
-      </div>
-
-      <div style="height:10px"></div>
-
-      <div class="row">
-        <div style="flex:1">
-          <div class="muted">Último URL SUNAT</div>
-          <div id="lastUrl" class="mono small" style="word-break:break-all; padding:8px 10px; border:1px dashed var(--line); border-radius:12px; background:rgba(0,0,0,.14)">—</div>
-        </div>
-        <button id="btnOpenLastUrl" class="btn">🔗 Abrir</button>
-      </div>
-
-      <div style="height:10px"></div>
-
-      <details>
-        <summary>📄 Procesar PDF manual (fallback si CORS bloquea)</summary>
-        <div style="height:10px"></div>
-        <input type="file" id="pdfInput" accept="application/pdf" />
-        <div style="height:10px"></div>
-        <div class="row">
-          <label class="chip"><input id="chkOcrIfEmpty" type="checkbox" /> OCR si el PDF no tiene texto</label>
-          <label class="chip"><input id="chkOcrAllPages" type="checkbox" /> OCR todas las páginas (lento)</label>
-        </div>
-        <div style="height:10px"></div>
-        <button id="btnProcessPdf" class="btn good wide">✅ Procesar PDF</button>
-      </details>
-
-      <div class="hr"></div>
-
-      <button id="btnManual" class="btn primary wide">📸 Foto Guía Manual (OCR)</button>
-      <input type="file" id="imgInput" accept="image/*" capture="environment" style="display:none" />
-
-      <div style="height:10px"></div>
-
-      <div class="previewWrap">
-        <div class="imgbox">
-          <b class="muted">Preview</b>
-          <div style="height:8px"></div>
-          <canvas id="canvasPreview" width="600" height="420"></canvas>
-          <div class="footerBar">
-            <button id="btnRotate" class="btn">⤾ Rotar 90°</button>
-            <button id="btnEnhance" class="btn">✨ Mejorar (BN)</button>
-            <button id="btnOcr" class="btn good">🔎 OCR</button>
-          </div>
-          <div class="muted small" style="margin-top:8px">Tip OCR: encuadra la guía, evita reflejos, buena luz.</div>
-        </div>
-
-        <div class="imgbox">
-          <b class="muted">Texto detectado (OCR) / Texto PDF</b>
-          <div style="height:8px"></div>
-          <textarea id="rawText" placeholder="Aquí verás el texto extraído para depurar..." spellcheck="false"></textarea>
-          <div class="footerBar">
-            <button id="btnParseRaw" class="btn">🧩 Parsear este texto</button>
-            <button id="btnClear" class="btn bad">🧹 Limpiar</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="hr"></div>
-
-      <div class="row space">
-        <b>Resultados</b>
-        <div class="row">
-          <button id="btnSave" class="btn good">💾 Guardar en historial</button>
-          <button id="btnExport" class="btn">⬇️ Exportar CSV</button>
-        </div>
-      </div>
-
-      <div style="height:10px"></div>
-
-      <div id="resultBox" class="muted">Aún no hay datos.</div>
-
-    </section>
-
-    <!-- RIGHT: History -->
-    <aside class="card">
-      <div class="row space">
-        <b>Historial</b>
-        <button id="btnClearHist" class="btn bad">🗑️ Borrar historial</button>
-      </div>
-      <div class="muted small" style="margin-top:6px">Se guarda en <span class="mono">localStorage</span> de tu navegador.</div>
-      <div class="hr"></div>
-      <div id="historyBox" class="muted">Sin registros.</div>
-    </aside>
-
-  </div>
-</main>
-
-<!-- Modal -->
-<div id="overlay" class="overlay">
-  <div class="modal">
-    <div class="row" style="gap:12px">
-      <div class="spinner"></div>
-      <div>
-        <b id="modalTitle">Procesando…</b>
-        <div id="modalStep" class="muted" style="margin-top:6px">—</div>
-      </div>
-    </div>
-    <div class="hr"></div>
-    <div class="row space">
-      <div class="muted small" id="modalHint">Puedes cancelar si se queda colgado.</div>
-      <button id="btnCancel" class="btn bad">❌ Cancelar</button>
-    </div>
+<!-- ═══════ MODAL: PROCESANDO ═══════ -->
+<div id="modal-processing" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <div class="spinner"></div>
+    <div id="modal-stage" class="modal-stage">Iniciando…</div>
+    <div class="modal-progress-bar"><div id="modal-progress-fill" class="modal-progress-fill" style="width:0%"></div></div>
+    <div id="modal-progress-label" class="modal-progress-label">0%</div>
+    <button id="btn-cancel" class="btn-cancel">✕ Cancelar</button>
   </div>
 </div>
 
-<!-- Libs -->
-<script src="https://unpkg.com/html5-qrcode"></script>
+<!-- ═══════ MODAL: FALLBACK PDF ═══════ -->
+<div id="modal-pdf-fallback" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-content modal-fallback">
+    <h3>No se pudo descargar el PDF</h3>
+    <p class="fallback-hint">El servidor SUNAT bloquea la descarga directa (CORS).<br>Descarga el PDF manualmente y súbelo aquí.</p>
+    <div id="fallback-url-display" class="fallback-url"></div>
+    <div class="fallback-actions">
+      <button id="btn-open-pdf-fallback" class="btn-secondary">↗ Abrir PDF en nueva pestaña</button>
+      <label for="input-pdf-fallback" class="btn-primary file-label">
+        ⬆ Subir PDF descargado
+        <input type="file" id="input-pdf-fallback" accept="application/pdf" class="hidden">
+      </label>
+    </div>
+    <button id="btn-cancel-fallback" class="btn-cancel mt-sm">✕ Cancelar</button>
+  </div>
+</div>
+
+<!-- ═══════ HEADER ═══════ -->
+<header class="app-header">
+  <div class="header-brand">
+    <div class="header-logo">▣</div>
+    <div class="header-text">
+      <h1>GRE SUNAT</h1>
+      <span class="header-sub">Extractor de Guías de Remisión</span>
+    </div>
+  </div>
+  <div class="header-tools">
+    <button id="btn-upload-pdf-direct" class="btn-icon-tool" title="Subir PDF directamente">📁</button>
+    <button id="btn-self-test" class="btn-icon-tool" title="Ejecutar pruebas internas (selfTest)">⚡</button>
+  </div>
+</header>
+
+<main class="app-main">
+
+  <!-- ═══════ ACCIONES PRINCIPALES ═══════ -->
+  <section class="action-section" id="action-section">
+    <button id="btn-scan-qr" class="btn-action btn-qr">
+      <span class="btn-icon-big">⬡</span>
+      <span class="btn-label">Escanear QR SUNAT</span>
+      <span class="btn-sub">Cámara → PDF automático</span>
+    </button>
+    <button id="btn-photo-manual" class="btn-action btn-photo">
+      <span class="btn-icon-big">◫</span>
+      <span class="btn-label">Foto Guía Manual</span>
+      <span class="btn-sub">Captura → OCR local</span>
+    </button>
+  </section>
+
+  <!-- ═══════ ÁREA QR SCANNER ═══════ -->
+  <section id="qr-scanner-area" class="scanner-area hidden">
+    <div class="scanner-header">
+      <span class="scanner-title">Apunta al código QR SUNAT</span>
+      <button id="btn-stop-qr" class="btn-sm btn-secondary">Detener</button>
+    </div>
+    <div id="qr-reader" class="qr-reader-container"></div>
+    <div id="last-url-display" class="last-url hidden">
+      <span class="url-label">URL detectada:</span>
+      <span id="last-url-text" class="url-text"></span>
+    </div>
+  </section>
+
+  <!-- ═══════ ÁREA FOTO MANUAL ═══════ -->
+  <section id="photo-area" class="photo-area hidden">
+    <input type="file" id="input-photo" accept="image/*" capture="environment" class="hidden">
+    <div id="photo-controls-top" class="photo-controls-top">
+      <label for="input-photo" class="btn-secondary btn-sm">📷 Cambiar imagen</label>
+      <button id="btn-rotate" class="btn-tool">↻ Rotar</button>
+      <button id="btn-enhance" class="btn-tool">◑ Mejorar</button>
+    </div>
+    <div id="photo-preview-container" class="photo-preview-container">
+      <canvas id="photo-canvas" class="photo-canvas"></canvas>
+    </div>
+    <div class="photo-controls-bottom">
+      <button id="btn-do-ocr" class="btn-primary btn-wide">🔍 Extraer texto (OCR)</button>
+    </div>
+  </section>
+
+  <!-- Input PDF directo (header) -->
+  <input type="file" id="input-pdf-direct" accept="application/pdf" class="hidden">
+
+  <!-- ═══════ PANEL RESULTADOS ═══════ -->
+  <section id="results-panel" class="results-panel hidden">
+    <div class="panel-header">
+      <h2 class="panel-title">Resultado</h2>
+      <div class="panel-actions">
+        <button id="btn-save-result" class="btn-primary btn-sm">💾 Guardar</button>
+        <button id="btn-discard-result" class="btn-secondary btn-sm">✕ Descartar</button>
+      </div>
+    </div>
+    <div class="result-source-badge" id="result-source-badge"></div>
+    <div class="result-section">
+      <h3 class="section-label">Datos de la Guía</h3>
+      <table id="table-meta" class="data-table"></table>
+    </div>
+    <div class="result-section">
+      <h3 class="section-label">Items / Bienes</h3>
+      <div class="table-scroll">
+        <table id="table-items" class="data-table items-table"></table>
+      </div>
+    </div>
+    <details class="raw-details">
+      <summary>Ver texto extraído (debug)</summary>
+      <pre id="raw-text-output" class="raw-text"></pre>
+    </details>
+  </section>
+
+  <!-- ═══════ HISTORIAL ═══════ -->
+  <section id="history-panel" class="history-panel">
+    <div class="panel-header">
+      <h2 class="panel-title">
+        Historial
+        <span id="history-count" class="badge">0</span>
+      </h2>
+      <div class="panel-actions">
+        <button id="btn-export-csv" class="btn-primary btn-sm">⬇ CSV</button>
+        <button id="btn-clear-history" class="btn-danger btn-sm">🗑 Limpiar</button>
+      </div>
+    </div>
+    <div id="history-list" class="history-list">
+      <div class="empty-state">
+        <span class="empty-icon">◫</span>
+        <p>No hay guías guardadas aún.<br>Escanea un QR o sube una foto para comenzar.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="app-footer">
+    GRE SUNAT Extractor · 100% local · Sin servidores
+  </footer>
+</main>
+
+<!-- ═══════ SCRIPTS CDN ═══════ -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <script>
-  // ------------------------------
-  // Config / State
-  // ------------------------------
-  const SUNAT_PREFIX = "https://e-factura.sunat.gob.pe/v1/contribuyente/gre/comprobantes/descargaqr?hashqr=";
-  const STORAGE_KEY = "gre_extractor_history_v1";
+'use strict';
 
-  // PDF.js worker
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+/* ═══════════════════════════════════════════════════════════
+   1. CONFIGURACIÓN
+   ═══════════════════════════════════════════════════════════ */
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
 
-  const els = {
-    status: document.getElementById("status"),
-    statusText: document.getElementById("statusText"),
-    lastUrl: document.getElementById("lastUrl"),
-    btnOpenLastUrl: document.getElementById("btnOpenLastUrl"),
+const ALL_SIZES = [
+  'XXXS','XXS','XS','S','M','L','XL','XXL','XXXL',
+  '1X','2XL','3XL','4XL','5XL','MT','LT','XLT','XXLT',
+  '0','2','4','6','8','10','12','14','16','18','20'
+];
+const SIZES_REGEX_SRC = 'XXXS|XXS|XXLT|XLT|XL|XS|XXL|XXXL|2XL|3XL|4XL|5XL|1X|MT|LT|S|M|L';
+const LS_KEY = 'gre_sunat_history';
+const MAX_HISTORY = 100;
 
-    btnStartQR: document.getElementById("btnStartQR"),
-    btnStopQR: document.getElementById("btnStopQR"),
+const AppState = {
+  currentResult: null,
+  abortController: null,
+  ocrCancelled: false,
+  html5QrCode: null,
+  photoRotation: 0,
+  lastQrUrl: null,
+};
 
-    pdfInput: document.getElementById("pdfInput"),
-    btnProcessPdf: document.getElementById("btnProcessPdf"),
-    chkOcrIfEmpty: document.getElementById("chkOcrIfEmpty"),
-    chkOcrAllPages: document.getElementById("chkOcrAllPages"),
+/* ═══════════════════════════════════════════════════════════
+   2. NORMALIZACIÓN DE TEXTO
+   ═══════════════════════════════════════════════════════════ */
+function normalizeText(text) {
+  if (!text) return '';
+  return text
+    .replace(/Â°/g,'°').replace(/Ã³/g,'ó').replace(/Ã©/g,'é')
+    .replace(/Ã­/g,'í').replace(/Ã¡/g,'á').replace(/Ã±/g,'ñ')
+    .replace(/Ãš/g,'Ú').replace(/Ã'/g,'Ñ').replace(/â€"/g,'-')
+    .normalize('NFC')
+    .replace(/[ \t]+/g,' ')
+    .replace(/\r\n/g,'\n').replace(/\r/g,'\n')
+    .replace(/\n{3,}/g,'\n\n')
+    .trim();
+}
 
-    btnManual: document.getElementById("btnManual"),
-    imgInput: document.getElementById("imgInput"),
+/* ═══════════════════════════════════════════════════════════
+   3. EXTRACCIÓN TEXTO DE PDF
+   ═══════════════════════════════════════════════════════════ */
+async function extractTextFromPdf(buffer, onProgress, flags) {
+  onProgress('Cargando PDF…', 5);
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+  const totalPages = pdf.numPages;
+  let fullText = '';
+  for (let p = 1; p <= totalPages; p++) {
+    if (flags && flags.cancelled) throw new Error('cancelled');
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    fullText += content.items.map(i => i.str).join(' ') + '\n';
+    onProgress(`Extrayendo página ${p}/${totalPages}…`, 5 + Math.round((p/totalPages)*40));
+  }
+  fullText = normalizeText(fullText);
+  if (fullText.replace(/\s/g,'').length < 80) {
+    onProgress('Texto escaso, iniciando OCR de imagen…', 50);
+    fullText = await ocrPdfPages(pdf, onProgress, flags);
+  }
+  return fullText;
+}
 
-    canvas: document.getElementById("canvasPreview"),
-    btnRotate: document.getElementById("btnRotate"),
-    btnEnhance: document.getElementById("btnEnhance"),
-    btnOcr: document.getElementById("btnOcr"),
+async function ocrPdfPages(pdf, onProgress, flags) {
+  let combined = '';
+  const totalPages = pdf.numPages;
+  for (let p = 1; p <= totalPages; p++) {
+    if (flags && flags.cancelled) throw new Error('cancelled');
+    const page = await pdf.getPage(p);
+    const viewport = page.getViewport({ scale: 1.8 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    onProgress(`OCR página ${p}/${totalPages}…`, 50 + Math.round((p/totalPages)*35));
+    const { data } = await Tesseract.recognize(canvas, 'spa', { logger: () => {} });
+    combined += data.text + '\n';
+  }
+  return normalizeText(combined);
+}
 
-    rawText: document.getElementById("rawText"),
-    btnParseRaw: document.getElementById("btnParseRaw"),
-    btnClear: document.getElementById("btnClear"),
+/* ═══════════════════════════════════════════════════════════
+   4. PARSER SUNAT GRE
+   ═══════════════════════════════════════════════════════════ */
+function extractFromSunatText(rawText) {
+  const text = normalizeText(rawText);
 
-    resultBox: document.getElementById("resultBox"),
-    btnSave: document.getElementById("btnSave"),
-    btnExport: document.getElementById("btnExport"),
+  // RUC remitente
+  let remitente = { ruc: '', nombre: '' };
+  const rucM = text.match(/RUC\s*N[°o]\s*(\d{11})/i);
+  if (rucM) remitente.ruc = rucM[1];
+  const nameM = text.match(/(?:GUÍA DE REMISIÓN ELECTRÓNICA\s+REMITENTE\s+N°[^\n]+\n)([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+?)(?:\n|$)/i);
+  if (nameM) remitente.nombre = nameM[1].trim();
 
-    historyBox: document.getElementById("historyBox"),
-    btnClearHist: document.getElementById("btnClearHist"),
+  // N° Guía
+  let guia = { serie: '', numero: '' };
+  const guiaM = text.match(/N[°o]\s+([A-Z0-9]+)\s*[-–]\s*(\d+)/i);
+  if (guiaM) { guia.serie = guiaM[1].trim(); guia.numero = guiaM[2].trim(); }
 
-    overlay: document.getElementById("overlay"),
-    modalTitle: document.getElementById("modalTitle"),
-    modalStep: document.getElementById("modalStep"),
-    btnCancel: document.getElementById("btnCancel"),
+  // Fecha
+  let fecha = '';
+  const fechaM = text.match(/Fecha de inicio de Traslado\s*:?\s*(\d{2}\/\d{2}\/\d{4})/i)
+              || text.match(/(\d{2}\/\d{2}\/\d{4})/);
+  if (fechaM) fecha = fechaM[1];
 
-    btnSelfTest: document.getElementById("btnSelfTest"),
+  // Destinatario
+  let destinatario = { ruc: '', nombre: '' };
+  const destM = text.match(/Datos del Destinatario\s*:(.+?)\s*[-–]\s*REGISTRO\s*[ÚU]NICO.*?N[°o]\s*(\d{11})/is);
+  if (destM) { destinatario.nombre = destM[1].trim(); destinatario.ruc = destM[2].trim(); }
+
+  // Motivo
+  let motivo = '';
+  const motivoM = text.match(/Descripci[oó]n de Motivo\s*:([^\n]+)/i);
+  if (motivoM) motivo = motivoM[1].trim();
+
+  // Observaciones
+  let observaciones = '';
+  const obsM = text.match(/Observaciones\s*:\s*(.+?)(?:\n|$)/i);
+  if (obsM) observaciones = obsM[1].trim();
+
+  // Placa / Conductor
+  let placa = '', conductor = '';
+  const placaM = text.match(/N[úu]mero de placa[:\s]+([A-Z0-9]+)/i);
+  if (placaM) placa = placaM[1].trim();
+  const condM = text.match(/Principal[:\s]+([A-ZÁÉÍÓÚÑ][^-\n]+?)\s*[-–]\s*DOCUMENTO/i);
+  if (condM) conductor = condM[1].trim();
+
+  const items = extractSunatItems(text);
+
+  return { source:'SUNAT_QR', guia, fecha, remitente, destinatario,
+           motivo, observaciones, conductor, placa, items,
+           rawText: rawText.substring(0,3000) };
+}
+
+function extractSunatItems(text) {
+  const isT003 = /JERSEY\s+C\/LYCRA|HEATHERED\s+CORE/i.test(text)
+              || /-(\d{1,2})\s+LT\.\s+1\s+UNIDAD/i.test(text);
+  return isT003 ? parseT003StyleItems(text) : parseEG07StyleItems(text);
+}
+
+function parseEG07StyleItems(text) {
+  const items = [];
+  const serviceRx = /SERVICIO\s+DE\s+CONFEC[CI]ON\b[^\n]*/gi;
+  let m;
+  while ((m = serviceRx.exec(text)) !== null) {
+    const blockStart = m.index;
+    const after = text.slice(blockStart);
+    const uniRx = /UNIDAD\s*\(?NIU\)?\s+([\d.]+)/i;
+    const uniM = after.match(uniRx);
+    const nextService = text.indexOf('SERVICIO DE CONFEC', blockStart + 5);
+    let blockEnd;
+    if (uniM) blockEnd = blockStart + after.indexOf(uniM[0]) + uniM[0].length;
+    else blockEnd = nextService > 0 ? nextService : blockStart + 400;
+    const block = text.slice(blockStart, blockEnd + 60);
+    const cantidad_total = uniM ? parseFloat(uniM[1]) : null;
+    const opM = block.match(/OP[:\s]*(\d{4,6})/i);
+    const op = opM ? opM[1] : null;
+    const colorM = block.match(/COLOR[:\s]+([A-Z][A-Z\s]+?)(?:\s+(?:PRIMERAS|SEGUNDAS|MANCHAS|2DA|TALLAS|XXS|XS|S\b|M\b|L\b|XL|UNIDAD)|$)/im);
+    const color = colorM ? colorM[1].trim() : null;
+    const catM = block.match(/\b(PRIMERAS|SEGUNDAS|MANCHAS|2DA\s+POR\s+TONO|TALLAS)\b/i);
+    const categoria = catM ? catM[1].replace(/\s+/g,' ').trim().toUpperCase() : null;
+    const tipoM = block.match(/^(SERVICIO\s+DE\s+CONFECCION\s*[-–]?\s*[^O\n]*?)(?:\s+OP|\s*$)/im);
+    const tipo = tipoM ? tipoM[1].trim() : 'SERVICIO DE CONFECCION';
+    const sizes = parseSizePairs(block);
+    items.push({ tipo, op, color, categoria, cantidad_total, sizes });
+  }
+  if (items.length === 0) {
+    const gi = extractGenericItem(text);
+    if (gi) items.push(gi);
+  }
+  return items;
+}
+
+function parseT003StyleItems(text) {
+  const rowRx = /([A-Z][\w\s,\/()-]+?)-(\d{1,2})\s+LT\.?\s+\d+\s+UNIDAD\s+([\d.]+)/gi;
+  const rows = [];
+  let m;
+  while ((m = rowRx.exec(text)) !== null) {
+    rows.push({ base: m[1].trim(), size: m[2], qty: parseFloat(m[3]) });
+  }
+  if (rows.length === 0) return [];
+  const groups = {};
+  for (const r of rows) {
+    const key = r.base.replace(/\s+/g,' ').trim();
+    if (!groups[key]) groups[key] = { tipo: key, sizes: {}, cantidad_total: 0 };
+    groups[key].sizes[r.size] = r.qty;
+    groups[key].cantidad_total += r.qty;
+  }
+  return Object.values(groups).map(g => ({
+    tipo: g.tipo, op: null, color: null, categoria: null,
+    cantidad_total: g.cantidad_total, sizes: g.sizes,
+  }));
+}
+
+function parseSizePairs(text) {
+  const sizes = {};
+  const pattern = new RegExp(`\\b(${SIZES_REGEX_SRC})\\s*=\\s*(\\d+)`, 'gi');
+  let m;
+  while ((m = pattern.exec(text)) !== null) sizes[m[1].toUpperCase()] = parseInt(m[2]);
+  return sizes;
+}
+
+function extractGenericItem(text) {
+  const sizes = parseSizePairs(text);
+  if (Object.keys(sizes).length === 0) return null;
+  return {
+    tipo: 'DESCRIPCIÓN NO DETECTADA', op: null, color: null, categoria: null,
+    cantidad_total: Object.values(sizes).reduce((a,b)=>a+b,0), sizes,
   };
+}
 
-  const ctx = els.canvas.getContext("2d");
+/* ═══════════════════════════════════════════════════════════
+   5. PARSER GUÍAS MANUALES (OCR)
+   ═══════════════════════════════════════════════════════════ */
+function extractFromManualOcrText(rawText, confidence) {
+  const text = normalizeText(rawText);
 
-  let html5QrCode = null;
-  let lastSunatUrl = "";
+  let remitente = { ruc: '' };
+  const rucM = text.match(/RUC\.?\s*(\d{11})/i);
+  if (rucM) remitente.ruc = rucM[1];
 
-  let abortController = null;
-  let cancelled = false;
+  let guia = { serie: '', numero: '' };
+  const guiaM = text.match(/(\d{3})\s*[-–]\s*[Nn][°o]?\s*0*(\d+)/);
+  if (guiaM) { guia.serie = guiaM[1]; guia.numero = guiaM[2].padStart(6,'0'); }
 
-  let tesseractWorker = null;
-
-  // current parsed object (editable UI reflects this)
-  let current = null;
-
-  // history
-  let history = loadHistory();
-
-  // ------------------------------
-  // UI helpers
-  // ------------------------------
-  function setStatus(text, type=""){
-    els.statusText.textContent = text;
-    els.status.className = "pill" + (type ? (" " + type) : "");
+  let fecha = '';
+  const meses = { enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,
+                  julio:7,agosto:8,septiembre:9,octubre:10,noviembre:11,diciembre:12 };
+  const fechaLargaM = text.match(/(\d{1,2})\s+de\s+([a-záéíóúñ]+)\s+del?\s+(\d{2,4})/i);
+  if (fechaLargaM) {
+    const mes = meses[fechaLargaM[2].toLowerCase()];
+    const anio = fechaLargaM[3].length===2 ? '20'+fechaLargaM[3] : fechaLargaM[3];
+    fecha = `${fechaLargaM[1].padStart(2,'0')}/${String(mes).padStart(2,'0')}/${anio}`;
+  } else {
+    const fM = text.match(/(\d{2})[\/\-](\d{2})[\/\-](\d{2,4})/);
+    if (fM) fecha = `${fM[1]}/${fM[2]}/${fM[3].length===2?'20'+fM[3]:fM[3]}`;
   }
 
-  function showModal(title, step){
-    els.modalTitle.textContent = title || "Procesando…";
-    els.modalStep.textContent = step || "—";
-    els.overlay.classList.add("show");
-  }
+  let destinatario = { ruc: '', nombre: '' };
+  const destRucs = [...text.matchAll(/RUC[:\s]*(\d{11})/gi)];
+  if (destRucs.length > 1) destinatario.ruc = destRucs[1][1];
+  const destNombreM = text.match(/(?:Destinatario|Razon social)[:\s]*([A-ZÁÉÍÓÚÑ][^\n]+)/i);
+  if (destNombreM) destinatario.nombre = destNombreM[1].trim();
 
-  function hideModal(){
-    els.overlay.classList.remove("show");
-  }
+  const items = parseManualItems(text);
 
-  function startJob(){
-    cancelled = false;
-    abortController = new AbortController();
-  }
+  return { source:'MANUAL_PHOTO', guia, fecha, remitente, destinatario,
+           motivo:'', observaciones:'', conductor:'', placa:'',
+           items, rawText: rawText.substring(0,3000),
+           ocrConfidenceSummary: Math.round(confidence)+'%' };
+}
 
-  async function cancelJob(){
-    cancelled = true;
-    try{ abortController?.abort(); }catch{}
-    // stop QR
-    try{ await stopScanner(); }catch{}
-    // stop OCR worker
-    try{
-      if (tesseractWorker){
-        await tesseractWorker.terminate();
-        tesseractWorker = null;
+function parseManualItems(text) {
+  const items = [];
+  const opMatches = [...text.matchAll(/OP[:\s]*(\d{4,6})/gi)];
+  for (const opM of opMatches) {
+    const op = opM[1];
+    const start = opM.index;
+    const block = text.slice(Math.max(0,start-120), Math.min(text.length,start+300));
+    const colorM = block.match(/color[:\s]+([A-Za-záéíóúñ\s]+?)(?:\n|$)/i);
+    const color = colorM ? colorM[1].trim() : null;
+    const tipoM = block.match(/(?:Servicio\s+de\s+confec\w+|SERVICIO\s+DE\s+CONFEC\w+)/i);
+    const tipo = tipoM ? tipoM[0].trim() : 'Servicio de confección';
+    const sizes = {};
+    let cantidad_total = null;
+
+    // Patrón A: "45 tallas M-24 L-21"
+    const tallasA = block.match(/(\d+)\s+tallas?\s+((?:[A-Z]+[-]\d+\s*)+)/i);
+    if (tallasA) {
+      cantidad_total = parseInt(tallasA[1]);
+      for (const p of tallasA[2].matchAll(/([A-Z]+)[-=](\d+)/gi))
+        sizes[p[1].toUpperCase()] = parseInt(p[2]);
+    }
+
+    // Patrón B: "34 tallas S M L XL\n 3 10 15 6"
+    if (Object.keys(sizes).length === 0) {
+      const tallasB = block.match(/(\d+)\s+tallas?\s+((?:(?:XXS|XS|S|M|L|XL|XXL)\s+)+)\n\s*((?:\d+\s+)+)/i);
+      if (tallasB) {
+        cantidad_total = parseInt(tallasB[1]);
+        const sNames = tallasB[2].trim().split(/\s+/);
+        const qtys = tallasB[3].trim().split(/\s+/);
+        sNames.forEach((sz,i) => { if (i<qtys.length) sizes[sz.toUpperCase()]=parseInt(qtys[i]); });
       }
-    }catch{}
+    }
+
+    // Fallback KEY=VAL
+    if (Object.keys(sizes).length === 0) Object.assign(sizes, parseSizePairs(block));
+    if (!cantidad_total && Object.keys(sizes).length > 0)
+      cantidad_total = Object.values(sizes).reduce((a,b)=>a+b,0);
+
+    const bolsaM = block.match(/(\d+)\s+bolsa/i);
+    items.push({ tipo, op, color, categoria: null, cantidad_total, sizes,
+                 bolsas: bolsaM ? parseInt(bolsaM[1]) : null });
+  }
+  if (items.length === 0) {
+    const sizes = parseSizePairs(text);
+    if (Object.keys(sizes).length > 0)
+      items.push({ tipo:'DESCRIPCIÓN MANUAL', op:null, color:null, categoria:null,
+                   cantidad_total: Object.values(sizes).reduce((a,b)=>a+b,0), sizes });
+  }
+  return items;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   6. QR SCANNER
+   ═══════════════════════════════════════════════════════════ */
+function initQrScanner() {
+  document.getElementById('qr-scanner-area').classList.remove('hidden');
+  document.getElementById('action-section').classList.add('hidden');
+  if (AppState.html5QrCode) { try { AppState.html5QrCode.stop(); } catch(_){} }
+  AppState.html5QrCode = new Html5Qrcode('qr-reader');
+  AppState.html5QrCode.start(
+    { facingMode: { ideal: 'environment' } },
+    { fps:10, qrbox:{width:240,height:240}, aspectRatio:1.0 },
+    (decodedText) => onQrDecoded(decodedText),
+    () => {}
+  ).catch(err => { showError('No se pudo acceder a la cámara: '+err); stopQrScanner(); });
+}
+
+function stopQrScanner() {
+  if (AppState.html5QrCode) { AppState.html5QrCode.stop().catch(()=>{}); AppState.html5QrCode = null; }
+  document.getElementById('qr-scanner-area').classList.add('hidden');
+  document.getElementById('action-section').classList.remove('hidden');
+}
+
+async function onQrDecoded(decodedText) {
+  if (AppState.html5QrCode) { await AppState.html5QrCode.stop().catch(()=>{}); AppState.html5QrCode = null; }
+  let pdfUrl = decodedText.trim();
+  document.getElementById('last-url-display').classList.remove('hidden');
+  document.getElementById('last-url-text').textContent = pdfUrl;
+  AppState.lastQrUrl = pdfUrl;
+  if (!pdfUrl.startsWith('http')) {
+    pdfUrl = `https://e-factura.sunat.gob.pe/v1/contribuyente/gre/comprobantes/descargaqr?hashqr=${encodeURIComponent(pdfUrl)}`;
+  }
+  await processSunatPdfUrl(pdfUrl);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   7. FLUJO URL → PDF → PARSE
+   ═══════════════════════════════════════════════════════════ */
+async function processSunatPdfUrl(url) {
+  const flags = { cancelled: false };
+  AppState.abortController = new AbortController();
+  showModal('Iniciando…', 2);
+  try {
+    showModal('Descargando PDF de SUNAT…', 20);
+    let buffer;
+    try {
+      const response = await fetch(url, {
+        signal: AppState.abortController.signal,
+        headers: { 'Accept': 'application/pdf' },
+        mode: 'cors',
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      buffer = await response.arrayBuffer();
+    } catch (fetchErr) {
+      hideModal();
+      await showPdfFallback(url);
+      return;
+    }
+    if (flags.cancelled) { hideModal(); return; }
+    await processPdfBuffer(buffer, 'SUNAT_QR', flags);
+  } catch (err) {
     hideModal();
-    setStatus("Cancelado", "warn");
+    if (err.message !== 'cancelled') showError('Error: '+err.message);
   }
+}
 
-  els.btnCancel.addEventListener("click", cancelJob);
-
-  function safeText(s){
-    return String(s || "");
-  }
-
-  function escapeHtml(str){
-    return safeText(str)
-      .replaceAll("&","&amp;")
-      .replaceAll("<","&lt;")
-      .replaceAll(">","&gt;")
-      .replaceAll('"',"&quot;")
-      .replaceAll("'","&#039;");
-  }
-
-  // ------------------------------
-  // QR helpers
-  // ------------------------------
-  function extractHashqr(raw){
-    if (!raw) return "";
-    let s = String(raw).trim();
-    // Normalize typical corruption from QR reads
-    s = s.replaceAll(" ","").replaceAll("Â¡","+").replaceAll("Â¿","?");
-    // Some QRs come with weird delimiters
-    const i = s.toLowerCase().indexOf("hashqr");
-    if (i === -1) return "";
-    let tail = s.slice(i + "hashqr".length).replace(/^[:?=_-]+/g, "");
-    const m = tail.match(/^[A-Za-z0-9+\/=_%\-]+/);
-    return m ? m[0] : "";
-  }
-
-  function buildSunatUrl(raw){
-    const token = extractHashqr(raw);
-    if (!token) return "";
-    return SUNAT_PREFIX + encodeURIComponent(token);
-  }
-
-  // ------------------------------
-  // PDF text extraction
-  // ------------------------------
-  async function fetchPdfBlob(url){
-    const signal = abortController?.signal;
-    const resp = await fetch(url, {
-      method: "GET",
-      mode: "cors",
-      redirect: "follow",
-      signal,
-      headers: {
-        "Accept": "application/pdf,*/*",
-      }
-    });
-    if (!resp.ok) throw new Error("SUNAT respondió HTTP " + resp.status);
-    const blob = await resp.blob();
-    if (!blob || blob.size < 1000) throw new Error("PDF vacío o inválido");
-    return blob;
-  }
-
-  async function extractTextFromPdfBlob(blob){
-    const signal = abortController?.signal;
-    const arrayBuffer = await blob.arrayBuffer();
-    if (signal?.aborted) throw new Error("Abortado");
-
-    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-    const pdf = await loadingTask.promise;
-
-    let fullText = "";
-    for (let p = 1; p <= pdf.numPages; p++){
-      if (cancelled) throw new Error("Cancelado");
-      showModal("Procesando PDF…", `Extrayendo texto (página ${p}/${pdf.numPages})`);
-      const page = await pdf.getPage(p);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items.map(it => it.str).join(" ");
-      fullText += pageText + "\n";
-    }
-    return fullText;
-  }
-
-  async function ocrPdfBlob(blob, ocrAllPages=false){
-    // Render each page to canvas and OCR with tesseract
-    const arrayBuffer = await blob.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-
-    const pagesToOcr = ocrAllPages ? [...Array(pdf.numPages)].map((_,i)=>i+1) : [1];
-
-    const pieces = [];
-    for (let idx = 0; idx < pagesToOcr.length; idx++){
-      if (cancelled) throw new Error("Cancelado");
-      const p = pagesToOcr[idx];
-      showModal("OCR en PDF…", `Renderizando página ${p}/${pdf.numPages}`);
-      const page = await pdf.getPage(p);
-      const viewport = page.getViewport({ scale: 1.35 });
-      const c = document.createElement("canvas");
-      const cctx = c.getContext("2d");
-      c.width = Math.floor(viewport.width);
-      c.height = Math.floor(viewport.height);
-      await page.render({ canvasContext: cctx, viewport }).promise;
-
-      showModal("OCR en PDF…", `Reconociendo texto (página ${p})`);
-      const text = await runOcrOnCanvas(c);
-      pieces.push(text);
-    }
-    return pieces.join("\n\n");
-  }
-
-  // ------------------------------
-  // OCR (Manual) + Image tools
-  // ------------------------------
-  function drawImageToCanvas(img){
-    // Fit inside canvas preserving aspect ratio
-    const cw = els.canvas.width;
-    const ch = els.canvas.height;
-    ctx.clearRect(0,0,cw,ch);
-
-    const r = Math.min(cw / img.width, ch / img.height);
-    const w = Math.floor(img.width * r);
-    const h = Math.floor(img.height * r);
-    const x = Math.floor((cw - w)/2);
-    const y = Math.floor((ch - h)/2);
-    ctx.drawImage(img, x, y, w, h);
-  }
-
-  function rotateCanvas90(){
-    const src = ctx.getImageData(0,0,els.canvas.width, els.canvas.height);
-    const w = els.canvas.width;
-    const h = els.canvas.height;
-
-    // Create offscreen
-    const off = document.createElement("canvas");
-    off.width = h;
-    off.height = w;
-    const octx = off.getContext("2d");
-
-    // Put src into temp canvas
-    const tmp = document.createElement("canvas");
-    tmp.width = w;
-    tmp.height = h;
-    tmp.getContext("2d").putImageData(src, 0,0);
-
-    octx.save();
-    octx.translate(off.width/2, off.height/2);
-    octx.rotate(Math.PI/2);
-    octx.drawImage(tmp, -w/2, -h/2);
-    octx.restore();
-
-    // Resize main canvas to keep fixed size; draw rotated centered
-    ctx.clearRect(0,0,w,h);
-    ctx.drawImage(off, 0,0, off.width, off.height, 0,0,w,h);
-  }
-
-  function enhanceCanvasBN(){
-    const img = ctx.getImageData(0,0,els.canvas.width, els.canvas.height);
-    const d = img.data;
-    // Simple grayscale + contrast + threshold
-    for (let i=0;i<d.length;i+=4){
-      const r = d[i], g = d[i+1], b = d[i+2];
-      let y = (0.299*r + 0.587*g + 0.114*b);
-      // contrast
-      y = (y - 128) * 1.25 + 128;
-      // threshold-ish
-      const v = y > 155 ? 255 : 0;
-      d[i]=d[i+1]=d[i+2]=v;
-    }
-    ctx.putImageData(img,0,0);
-  }
-
-  async function getOrCreateWorker(){
-    if (tesseractWorker) return tesseractWorker;
-    showModal("OCR…", "Inicializando motor (1ra vez tarda un poco)");
-    tesseractWorker = await Tesseract.createWorker("spa");
-    return tesseractWorker;
-  }
-
-  async function runOcrOnCanvas(canvas){
-    const worker = await getOrCreateWorker();
-    if (cancelled) throw new Error("Cancelado");
-
-    showModal("OCR…", "Reconociendo texto…");
-    const { data } = await worker.recognize(canvas);
-    return data?.text || "";
-  }
-
-  // ------------------------------
-  // Text normalization
-  // ------------------------------
-  function normalizeOcrText(value){
-    let s = String(value || "");
-    const reps = [
-      ["Ã¡","á"],["Ã©","é"],["Ã­","í"],["Ã³","ó"],["Ãº","ú"],
-      ["Ã","Á"],["Ã‰","É"],["Ã","Í"],["Ã“","Ó"],["Ãš","Ú"],
-      ["Ã±","ñ"],["Ã‘","Ñ"],["Â°","°"],["Âº","º"],
-    ];
-    for (const [a,b] of reps) s = s.split(a).join(b);
-    s = s
-      .replace(/\u00C2/g, "")
-      .replace(/\u00A0/g, " ")
-      .replace(/\u2013|\u2014/g, "-")
-      .replace(/\u2018|\u2019/g, "'")
-      .replace(/\u201C|\u201D/g, '"');
-    // Normalize whitespace
-    s = s.replace(/\r/g, "");
-    return s;
-  }
-
-  function normalizeLine(s){
-    return normalizeOcrText(s).replace(/\s+/g," ").trim();
-  }
-
-  // ------------------------------
-  // Parser helpers
-  // ------------------------------
-  const SIZE_HEADERS = [
-    "0","2","4","6","8","10","12","14","16","18","20",
-    "XXXS","XXS","XS","S","M","L","XL","XXL","XXXL",
-    "XS/S","S/M","M/L","L/XL","XL/XXL",
-    "1X","2XL","3XL","4XL","5XL",
-    "MT","LT","XLT","XXLT"
-  ];
-
-  const SIZE_PATTERN = [...SIZE_HEADERS].sort((a,b)=>b.length-a.length)
-    .map(v => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-
-  const RE = {
-    ruc: /RUC\s*(?:N(?:\u00C2)?[\u00B0\u00BA])?\s*([0-9]{11})/i,
-    serieDoc: /N(?:\u00C2)?[\u00B0\u00BA]\s*([A-Za-z0-9]{3,4})\s*[-–]\s*([0-9]{1,12})/i,
-    fechaEmision: /Fecha\s+y\s+hora\s+de\s+emisi(?:\u00C3\u00B3|\u00F3|o)n\s*:?\s*(\d{2}\/\d{2}\/\d{4})/i,
-    fechaInicio: /Fecha\s+de\s+inicio\s+de\s+Traslado\s*:?\s*(\d{2}\/\d{2}\/\d{4})/i,
-    fechaDatetime: /(\d{2}\/\d{2}\/\d{4})\s+\d{2}:\d{2}\s*(?:AM|PM)/i,
-
-    op: /\b(?:OP|OC|PEDIDO|ORDEN)\s*:?\s*([0-9-]{3,15})\b/i,
-    cantidadTotal: /\bUNIDAD\s*(?:\([A-Z]+\))?\s*([0-9]+(?:[.,][0-9]{1,2})?)\b/i,
-
-    // Acepta: COLOR: BLACK  / COLOR BLACK
-    color: /\bCOLOR(?:ES)?\b\s*:?\s*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s\-]{2,80}?)(?=\s+(?:UNIDAD|NIU|UND|\d)|$)/i,
-
-    // sizes like XXS=69
-    sizeAssign: new RegExp(`\\b(${SIZE_PATTERN})\\b\\s*(?:=|:)\\s*(\\d+(?:[.,]\\d+)?)`, "gi"),
-    // sizes like XS 2 (loose)
-    sizeLoose: new RegExp(`\\b(${SIZE_PATTERN})\\b\\s*(?:=|:)?\\s*(\\d+(?:[.,]\\d+)?)`, "gi"),
-
-    // numeric sizes like GREY-2 LT.
-    dashNumeric: /-([0-9]{1,2})\s*(?:LT|L\.?|TALLA|SIZE)\b/gi,
-
-    destinatarioBlock: /DESTINATARIO/i,
-    razonSocialDest: /Nom\.?\s*o\s*raz[oó]n\s+social\s+del\s+DESTINATARIO\s*:?\s*(.*)/i,
-
-    guiaElectronica: /GU[IÍ]A\s+DE\s+REMISI[OÓ]N\s+ELECTR[OÓ]NICA/i,
-  };
-
-  function pick(s, re, group=1){
-    const m = String(s||"").match(re);
-    if (!m) return "";
-    return (m[group] || m[0] || "").trim();
-  }
-
-  function createEmptySizeMap(){
-    const m = {};
-    for (const k of SIZE_HEADERS) m[k] = 0;
-    return m;
-  }
-
-  function mergeSizes(target, incoming){
-    for (const k of Object.keys(incoming || {})){
-      const v = Number(String(incoming[k]).replace(",","."));
-      if (!Number.isFinite(v)) continue;
-      target[k] = (Number(target[k]||0) + v);
-    }
-  }
-
-  function extractSizes(text){
-    const out = {};
-    const norm = normalizeLine(text).toUpperCase().replace(/,/g, ".");
-
-    // 1) explicit assignments
-    RE.sizeAssign.lastIndex = 0;
-    let m;
-    while ((m = RE.sizeAssign.exec(norm)) !== null){
-      const size = m[1];
-      const qty = Number(String(m[2]).replace(",","."));
-      if (Number.isFinite(qty)) out[size] = (out[size] || 0) + qty;
-    }
-
-    // 2) numeric sizes like -2 LT
-    RE.dashNumeric.lastIndex = 0;
-    while ((m = RE.dashNumeric.exec(norm)) !== null){
-      const sizeNum = m[1];
-      // only keep if it's a valid numeric size (2,4,6,8,10,12,14,16,18,20,0)
-      if (/^(0|2|4|6|8|10|12|14|16|18|20)$/.test(sizeNum)){
-        out[sizeNum] = (out[sizeNum] || 0) + 1;
-      }
-    }
-
-    // 3) loose sizes only if context suggests sizes
-    if (Object.keys(out).length === 0 && /\b(?:PRIMERA|PRIMERAS|SEGUNDA|SEGUNDAS|TALLA|TALLAS)\b/i.test(norm)){
-      RE.sizeLoose.lastIndex = 0;
-      while ((m = RE.sizeLoose.exec(norm)) !== null){
-        const size = m[1];
-        const qty = Number(String(m[2]).replace(",","."));
-        if (Number.isFinite(qty)) out[size] = (out[size] || 0) + qty;
-      }
-    }
-
-    return out;
-  }
-
-  function extractColor(text){
-    const t = normalizeLine(text);
-    let c = pick(t, RE.color, 1);
-    if (c) return normalizeLine(c).toUpperCase();
-
-    // heuristic: pick from known keywords
-    const U = t.toUpperCase();
-    const keys = ["HEATHERED","ULTRA","LIGHT","DARK","BLACK","WHITE","GREY","GRAY","NAVY","BEIGE","BROWN","NEGRO","BLANCO","GRIS","AZUL","ROJO","DENIM","STONE"];
-    for (const k of keys){
-      const idx = U.indexOf(k);
-      if (idx >= 0){
-        const tail = U.slice(idx);
-        const m = tail.match(/^([A-Z\s]+?)(?:-[0-9]|\s+[0-9]{1,2}\s*(?:LT|L\.?|TALLA)|$)/);
-        if (m && m[1]) return normalizeLine(m[1]).toUpperCase();
-      }
-    }
-    return "";
-  }
-
-  function extractCategoria(text){
-    const U = normalizeLine(text).toUpperCase();
-    const cats = ["PRIMERAS","PRIMERA","SEGUNDAS","SEGUNDA","MANCHAS","2DA POR TONO","2DA","TERCERA","TERCERAS"];
-    for (const c of cats){
-      if (U.includes(c)) return c;
-    }
-    return "";
-  }
-
-  function parseSunatGreText(raw){
-    const text = normalizeOcrText(raw);
-    const lines = text.split(/\n/).map(normalizeLine).filter(Boolean);
-    const joined = lines.join("\n");
-
-    const remitRuc = pick(joined, RE.ruc, 1);
-    const mDoc = joined.match(RE.serieDoc);
-    const serie = mDoc ? mDoc[1] : "";
-    const numero = mDoc ? mDoc[2] : "";
-
-    let fecha = pick(joined, RE.fechaInicio, 1);
-    if (!fecha) fecha = pick(joined, RE.fechaEmision, 1);
-    if (!fecha) fecha = pick(joined, RE.fechaDatetime, 1);
-
-    // Destinatario: best-effort
-    let destNombre = "";
-    let destRuc = "";
-
-    // Try explicit label line
-    for (let i=0;i<Math.min(lines.length, 80);i++){
-      const l = lines[i];
-      if (RE.razonSocialDest.test(l)){
-        const m = l.match(RE.razonSocialDest);
-        if (m && m[1]) destNombre = normalizeLine(m[1]);
-        // next few lines might contain RUC
-        for (let j=i;j<Math.min(lines.length, i+8);j++){
-          const r = lines[j].match(RE.ruc);
-          if (r && r[1]){ destRuc = r[1]; break; }
-        }
-        break;
-      }
-    }
-
-    // Fallback: search around "DESTINATARIO"
-    if (!destNombre){
-      const idx = lines.findIndex(l => RE.destinatarioBlock.test(l));
-      if (idx >= 0){
-        for (let j=idx; j<Math.min(lines.length, idx+8); j++){
-          if (!destNombre && lines[j].length > 5 && !/DESTINATARIO/i.test(lines[j]) && !/Nom\.?\s*o\s*raz/i.test(lines[j])){
-            // Likely name line
-            if (!/RUC/i.test(lines[j])) destNombre = lines[j];
-          }
-          const r = lines[j].match(RE.ruc);
-          if (r && r[1]) destRuc = r[1];
-        }
-      }
-    }
-
-    // Items:
-    // SUNAT PDFs sometimes include items in a "Bienes" section, sometimes in one line.
-    // Strategy:
-    // - collect candidate lines containing SERVICIO / CONFECCION / "NO"-items / JERSEY/LYCRA
-    const candidates = [];
-    for (let i=0;i<lines.length;i++){
-      const l = lines[i];
-      const U = l.toUpperCase();
-      if (/\bSERVICIO\b/.test(U) || /\bCONFECC/i.test(U) || /^\d+\s+NO\s+/i.test(l) || /\bJERSEY\b|\bLYCRA\b|\bTELA\b/.test(U)){
-        // merge with next line if it continues (often COLOR appears next)
-        let block = l;
-        if (i+1 < lines.length){
-          const n = lines[i+1];
-          if (/\bCOLOR\b/i.test(n) || /\bTALLAS\b|\bPRIMERAS\b|\bSEGUNDAS\b/i.test(n)){
-            block += " " + n;
-          }
-        }
-        candidates.push(block);
-      }
-    }
-
-    const items = [];
-    for (const c of candidates){
-      const U = c.toUpperCase();
-      // Must have something actionable
-      const op = pick(c, RE.op, 1);
-      const color = extractColor(c);
-      const categoria = extractCategoria(c);
-      const qtyStr = pick(c, RE.cantidadTotal, 1);
-      const qty = qtyStr ? Number(qtyStr.replace(",",".")) : "";
-      const sizesRaw = extractSizes(c);
-
-      // If numeric size detected by dashNumeric, and we have quantity total and only 1 numeric size, set that size to qty
-      const numericKeys = Object.keys(sizesRaw).filter(k => /^(0|2|4|6|8|10|12|14|16|18|20)$/.test(k));
-      if (qty && numericKeys.length === 1){
-        sizesRaw[numericKeys[0]] = qty;
-      }
-
-      // Tipo: try to remove leading item counters and common prefixes
-      let tipo = normalizeLine(c)
-        .replace(/^\d+\s+NO\s+\d+\s*/i, "")
-        .replace(/^C?SERVICIO\s+DE\s+CONFECCION\s*[-:]*\s*/i, "SERVICIO DE CONFECCION - ")
-        .replace(/\bOP\s*:?\s*[0-9-]{3,15}\b/i, "")
-        .replace(/\bCOLOR\b.*$/i, "")
-        .trim();
-
-      // If tipo too short, fallback to full
-      if (tipo.length < 6) tipo = normalizeLine(c);
-
-      // Keep only if it has any meaningful field
-      const hasSizes = Object.values(sizesRaw).some(v => Number(v) > 0);
-      const meaningful = Boolean(op || color || hasSizes || /SERVICIO|JERSEY|LYCRA|TELA/i.test(c));
-      if (!meaningful) continue;
-
-      // Standardize size map
-      const sizeMap = createEmptySizeMap();
-      // include numeric sizes not in headers
-      mergeSizes(sizeMap, sizesRaw);
-      // add numeric sizes outside headers to separate map
-      const extraSizes = {};
-      for (const k of Object.keys(sizesRaw)){
-        if (!Object.prototype.hasOwnProperty.call(sizeMap, k)) extraSizes[k] = sizesRaw[k];
-      }
-
-      items.push({
-        tipo: tipo,
-        op: op,
-        color: color,
-        categoria: categoria,
-        cantidad_total: qty !== "" && Number.isFinite(qty) ? qty : "",
-        sizes: sizeMap,
-        extra_sizes: extraSizes,
-        _src: c,
-      });
-    }
-
-    // De-duplicate very similar items
-    const uniq = [];
-    const seen = new Set();
-    for (const it of items){
-      const key = (it.op||"") + "|" + (it.color||"") + "|" + (it.categoria||"") + "|" + it.tipo.slice(0,40);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      uniq.push(it);
-    }
-
-    return {
-      source: "SUNAT_QR",
-      guia: { serie, numero },
-      fecha,
-      remitente: { ruc: remitRuc },
-      destinatario: { ruc: destRuc, nombre: destNombre },
-      items: uniq,
-      rawText: text,
+function showPdfFallback(url) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('modal-pdf-fallback');
+    document.getElementById('fallback-url-display').textContent = url;
+    document.getElementById('btn-open-pdf-fallback').onclick = () => window.open(url, '_blank');
+    const fileInput = document.getElementById('input-pdf-fallback');
+    fileInput.value = '';
+    fileInput.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      modal.classList.add('hidden');
+      await processPdfBuffer(await file.arrayBuffer(), 'SUNAT_QR', { cancelled: false });
+      resolve();
     };
-  }
-
-  function parseManualGuideText(raw){
-    const text = normalizeOcrText(raw);
-    const lines = text.split(/\n/).map(normalizeLine).filter(Boolean);
-    const joined = lines.join("\n");
-
-    const remitRuc = pick(joined, /\bRUC\.?\s*([0-9]{11})\b/i, 1);
-
-    // Guia like: 001 - N° 003386
-    let serie = pick(joined, /\b(\d{3})\s*[-–]\s*N\s*[°ºo]?\s*([0-9]{3,})\b/i, 1);
-    let numero = pick(joined, /\b(\d{3})\s*[-–]\s*N\s*[°ºo]?\s*([0-9]{3,})\b/i, 2);
-
-    // Date formats
-    let fecha = pick(joined, /(\d{2}\/\d{2}\/\d{4})/, 1);
-    if (!fecha) fecha = pick(joined, /(\d{1,2}\/\d{1,2}\/\d{2,4})/, 1);
-
-    // Try handwritten dd mm del yy
-    if (!fecha){
-      const m = joined.match(/Fecha\s+de\s+Emisi[oó]n\s*:?\s*(\d{1,2})\s*(?:de)?\s*(\d{1,2}|enero|febrero|marzo|abril|mayo|junio|julio|agosto|setiembre|septiembre|octubre|noviembre|diciembre)\s*(?:del?|de)?\s*(\d{2,4})/i);
-      if (m){
-        const dd = String(m[1]).padStart(2,"0");
-        const mmRaw = String(m[2]).toLowerCase();
-        const yyRaw = String(m[3]);
-        let mm = "";
-        if (/^\d+$/.test(mmRaw)) mm = mmRaw.padStart(2,"0");
-        else {
-          const map = {enero:"01",febrero:"02",marzo:"03",abril:"04",mayo:"05",junio:"06",julio:"07",agosto:"08",setiembre:"09",septiembre:"09",octubre:"10",noviembre:"11",diciembre:"12"};
-          mm = map[mmRaw] || "";
-        }
-        let yyyy = yyRaw.length === 2 ? ("20" + yyRaw) : yyRaw;
-        if (mm) fecha = `${dd}/${mm}/${yyyy}`;
-      }
-    }
-
-    // Destinatario
-    let destNombre = "";
-    let destRuc = "";
-    for (let i=0;i<lines.length;i++){
-      const l = lines[i];
-      if (/DESTINATARIO/i.test(l) || /raz[oó]n\s+social\s+del\s+DESTINATARIO/i.test(l)){
-        // look ahead
-        for (let j=i;j<Math.min(lines.length,i+6);j++){
-          const r = lines[j].match(/\bRUC\.?\s*([0-9]{11})\b/i);
-          if (r && r[1]) destRuc = r[1];
-          if (!destNombre && lines[j].length >= 5 && !/DESTINATARIO/i.test(lines[j]) && !/RUC/i.test(lines[j]) && !/Doc\./i.test(lines[j])){
-            destNombre = lines[j];
-          }
-        }
-        break;
-      }
-    }
-
-    // Item extraction heuristics
-    // We'll build a single item from common fields in manual guide
-    const op = pick(joined, /\bOP\s*([0-9-]{3,15})\b/i, 1);
-    const color = (pick(joined, /\bcolor\s*:?\s*([A-Za-z0-9\s\-]{3,40})/i, 1) || "").trim();
-
-    // Type/description: try to catch "Servicio de confección" line
-    let tipo = pick(joined, /\bServicio\s+de\s+confecci[oó]n\b.*/i, 0);
-    if (!tipo){
-      // In many manual guides: there's a big DESCRIPTION line; pick longest line after "DESCRIPCION"
-      const idx = lines.findIndex(l => /^DESCRIPCION$/i.test(l) || /DESCRIPCION/i.test(l));
-      if (idx >= 0){
-        const next = lines.slice(idx+1, idx+6);
-        tipo = next.sort((a,b)=>b.length-a.length)[0] || "";
-      }
-    }
-
-    // Sizes & quantities for manual (tallas)
-    const sizes = createEmptySizeMap();
-    const extra = {};
-    let cantidad_total = "";
-
-    // Pattern: 45 tallas m-24 l-21
-    let mTall = joined.match(/\b(\d{1,4})\s+tallas?\b([^\n]*)/i);
-    if (mTall){
-      cantidad_total = Number(mTall[1]);
-      const tail = mTall[2];
-      // m-24 l-21
-      const pairs = tail.matchAll(/\b(XXXS|XXS|XS|S|M|L|XL|XXL|XXXL|\d{1,2})\s*[-:=]?\s*(\d{1,4})\b/gi);
-      for (const p of pairs){
-        const k = p[1].toUpperCase();
-        const v = Number(p[2]);
-        if (Object.prototype.hasOwnProperty.call(sizes, k)) sizes[k] += v;
-        else extra[k] = (extra[k] || 0) + v;
-      }
-
-      // Pattern: S M L XL 3 10 15 6
-      if (Object.values(sizes).every(v => v===0)){
-        const tokens = tail.split(/\s+/).filter(Boolean);
-        const sizeTokens = tokens.filter(t => /^[A-Za-z]{1,4}$/.test(t));
-        const numTokens = tokens.filter(t => /^\d{1,4}$/.test(t)).map(Number);
-        if (sizeTokens.length && numTokens.length && sizeTokens.length === numTokens.length){
-          for (let i=0;i<sizeTokens.length;i++){
-            const k = sizeTokens[i].toUpperCase();
-            const v = numTokens[i];
-            if (Object.prototype.hasOwnProperty.call(sizes, k)) sizes[k] += v;
-            else extra[k] = (extra[k] || 0) + v;
-          }
-        }
-      }
-    }
-
-    const item = {
-      tipo: normalizeLine(tipo),
-      op: op,
-      color: normalizeLine(color).toUpperCase(),
-      categoria: "",
-      cantidad_total: (cantidad_total !== "" && Number.isFinite(cantidad_total)) ? cantidad_total : "",
-      sizes,
-      extra_sizes: extra,
-      _src: "MANUAL_OCR",
-    };
-
-    return {
-      source: "MANUAL_PHOTO",
-      guia: { serie, numero },
-      fecha: fecha,
-      remitente: { ruc: remitRuc },
-      destinatario: { ruc: destRuc, nombre: destNombre },
-      items: [item],
-      rawText: text,
-    };
-  }
-
-  // ------------------------------
-  // Rendering editable result
-  // ------------------------------
-  function sizesToCompactString(sizeMap, extraMap){
-    const parts = [];
-    for (const k of SIZE_HEADERS){
-      const v = Number(sizeMap?.[k] || 0);
-      if (Number.isFinite(v) && v > 0) parts.push(`${k}=${v}`);
-    }
-    for (const k of Object.keys(extraMap || {})){
-      const v = Number(extraMap[k]);
-      if (Number.isFinite(v) && v > 0) parts.push(`${k}=${v}`);
-    }
-    return parts.length ? parts.join(" ") : "";
-  }
-
-  function renderCurrent(){
-    if (!current){
-      els.resultBox.innerHTML = "<div class='muted'>Aún no hay datos.</div>";
-      return;
-    }
-
-    const d = current;
-    const g = d.guia || {serie:"",numero:""};
-
-    const topTable = `
-      <table>
-        <tr><th style="width:160px">Origen</th><td><input data-path="source" type="text" value="${escapeHtml(d.source||"")}" /></td></tr>
-        <tr><th>Fecha</th><td><input data-path="fecha" type="text" value="${escapeHtml(d.fecha||"")}" /></td></tr>
-        <tr><th>Guía</th><td class="mono"><span class="chip">Serie</span> <input data-path="guia.serie" type="text" style="width:120px;display:inline-block" value="${escapeHtml(g.serie||"")}" />
-                       <span class="chip">Número</span> <input data-path="guia.numero" type="text" style="width:180px;display:inline-block" value="${escapeHtml(g.numero||"")}" /></td></tr>
-        <tr><th>Remitente RUC</th><td><input data-path="remitente.ruc" type="text" value="${escapeHtml(d.remitente?.ruc||"")}" /></td></tr>
-        <tr><th>Destinatario</th><td>
-          <div class="row" style="gap:8px">
-            <input data-path="destinatario.nombre" type="text" placeholder="Razón social" value="${escapeHtml(d.destinatario?.nombre||"")}" />
-            <input data-path="destinatario.ruc" type="text" placeholder="RUC" value="${escapeHtml(d.destinatario?.ruc||"")}" />
-          </div>
-        </td></tr>
-      </table>
-    `;
-
-    const items = Array.isArray(d.items) ? d.items : [];
-    const itemRows = items.map((it, idx) => {
-      const comp = sizesToCompactString(it.sizes, it.extra_sizes);
-      return `
-        <tr>
-          <th style="width:90px">Item ${idx+1}</th>
-          <td>
-            <div class="row" style="gap:8px">
-              <input data-path="items.${idx}.tipo" type="text" placeholder="Tipo/Descripción" value="${escapeHtml(it.tipo||"")}" />
-              <input data-path="items.${idx}.op" type="text" placeholder="OP" style="width:140px" value="${escapeHtml(it.op||"")}" />
-              <input data-path="items.${idx}.color" type="text" placeholder="Color" style="width:190px" value="${escapeHtml(it.color||"")}" />
-              <input data-path="items.${idx}.categoria" type="text" placeholder="Categoría (PRIMERAS/SEGUNDAS/...)" style="width:220px" value="${escapeHtml(it.categoria||"")}" />
-              <input data-path="items.${idx}.cantidad_total" type="text" placeholder="Cantidad total" style="width:140px" value="${escapeHtml(it.cantidad_total||"")}" />
-            </div>
-            <div style="height:8px"></div>
-            <div class="row" style="gap:8px">
-              <input data-path="items.${idx}.sizes_compact" type="text" placeholder="Tallas (ej: XXS=2 XS=9 M=142...)" value="${escapeHtml(comp)}" />
-            </div>
-            <div class="muted small" style="margin-top:6px">Origen parser: <span class="mono">${escapeHtml(it._src||"")}</span></div>
-          </td>
-        </tr>
-      `;
-    }).join("");
-
-    const itemsTable = `
-      <table style="margin-top:10px">
-        <tr><th colspan="2">Items</th></tr>
-        ${itemRows || `<tr><td colspan="2" class="muted">Sin items detectados.</td></tr>`}
-      </table>
-    `;
-
-    els.resultBox.innerHTML = topTable + itemsTable + `
-      <details style="margin-top:10px">
-        <summary>🧾 Ver texto completo (RAW)</summary>
-        <pre class="mono small" style="white-space:pre-wrap; margin:10px 0 0">${escapeHtml(d.rawText||"")}</pre>
-      </details>
-    `;
-
-    // Bind input changes
-    els.resultBox.querySelectorAll("input[data-path]").forEach(inp => {
-      inp.addEventListener("input", () => {
-        const path = inp.getAttribute("data-path");
-        if (!path) return;
-        if (path.endsWith(".sizes_compact")){
-          // parse compact sizes into map
-          const m = path.match(/^items\.(\d+)\.sizes_compact$/);
-          if (!m) return;
-          const idx = Number(m[1]);
-          applyCompactSizesToItem(idx, inp.value);
-          return;
-        }
-        setByPath(current, path, inp.value);
-      });
-    });
-  }
-
-  function setByPath(obj, path, value){
-    const parts = path.split(".");
-    let cur = obj;
-    for (let i=0;i<parts.length;i++){
-      const k = parts[i];
-      const last = i === parts.length - 1;
-      if (last){
-        cur[k] = value;
-      } else {
-        if (cur[k] == null) cur[k] = {};
-        cur = cur[k];
-      }
-    }
-  }
-
-  function applyCompactSizesToItem(itemIdx, compact){
-    if (!current?.items?.[itemIdx]) return;
-    const it = current.items[itemIdx];
-    const sizeMap = createEmptySizeMap();
-    const extra = {};
-
-    const parts = String(compact||"").split(/\s+/).filter(Boolean);
-    for (const p of parts){
-      const m = p.match(/^([^=:\-]+)\s*(?:=|:|-)\s*(\d+(?:[.,]\d+)?)$/);
-      if (!m) continue;
-      const k = m[1].toUpperCase();
-      const v = Number(String(m[2]).replace(",","."));
-      if (!Number.isFinite(v)) continue;
-      if (Object.prototype.hasOwnProperty.call(sizeMap, k)) sizeMap[k] = v;
-      else extra[k] = v;
-    }
-    it.sizes = sizeMap;
-    it.extra_sizes = extra;
-  }
-
-  // ------------------------------
-  // History + CSV
-  // ------------------------------
-  function loadHistory(){
-    try{
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const arr = JSON.parse(raw || "[]");
-      return Array.isArray(arr) ? arr : [];
-    }catch{ return []; }
-  }
-
-  function saveHistory(){
-    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(history)); }catch{}
-  }
-
-  function renderHistory(){
-    if (!history.length){
-      els.historyBox.innerHTML = "<div class='muted'>Sin registros.</div>";
-      return;
-    }
-    els.historyBox.innerHTML = history.slice().reverse().map((h, revIdx) => {
-      const idx = history.length - 1 - revIdx;
-      const guia = `${h.guia?.serie||""}-${h.guia?.numero||""}`.replace(/^-|-$|^-$|--/g, "");
-      const chips = [
-        `<span class="chip">${escapeHtml(h.source||"")}</span>`,
-        h.fecha ? `<span class="chip">📅 ${escapeHtml(h.fecha)}</span>` : "",
-        guia.trim() ? `<span class="chip">🧾 ${escapeHtml(guia)}</span>` : "",
-        h.remitente?.ruc ? `<span class="chip">RUC ${escapeHtml(h.remitente.ruc)}</span>` : "",
-      ].filter(Boolean).join(" ");
-
-      const itemCount = Array.isArray(h.items) ? h.items.length : 0;
-      const dest = h.destinatario?.nombre || "";
-
-      return `
-        <div class="histItem">
-          <div class="histTop">
-            <div>
-              <b>${escapeHtml(guia || "(sin guía)")}</b>
-              <div class="muted small" style="margin-top:4px">${escapeHtml(dest)}</div>
-              <div style="margin-top:6px">${chips}</div>
-              <div class="muted small" style="margin-top:6px">Items: ${itemCount}</div>
-            </div>
-            <div class="row" style="gap:8px">
-              <button class="btn" data-act="load" data-idx="${idx}">↩️ Cargar</button>
-              <button class="btn bad" data-act="del" data-idx="${idx}">🗑️</button>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join("");
-
-    els.historyBox.querySelectorAll("button[data-act]").forEach(b => {
-      b.addEventListener("click", () => {
-        const act = b.getAttribute("data-act");
-        const idx = Number(b.getAttribute("data-idx"));
-        if (!Number.isFinite(idx) || idx < 0 || idx >= history.length) return;
-        if (act === "load"){
-          current = structuredClone(history[idx]);
-          els.rawText.value = current.rawText || "";
-          renderCurrent();
-          setStatus("Cargado desde historial", "ok");
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        } else if (act === "del"){
-          history.splice(idx, 1);
-          saveHistory();
-          renderHistory();
-          setStatus("Registro eliminado", "warn");
-        }
-      });
-    });
-  }
-
-  function flattenToCsvRows(hist){
-    const rows = [];
-    for (const rec of hist){
-      const base = {
-        source: rec.source || "",
-        fecha: rec.fecha || "",
-        serie: rec.guia?.serie || "",
-        numero: rec.guia?.numero || "",
-        remitente_ruc: rec.remitente?.ruc || "",
-        destinatario_ruc: rec.destinatario?.ruc || "",
-        destinatario_nombre: rec.destinatario?.nombre || "",
-      };
-      const items = Array.isArray(rec.items) && rec.items.length ? rec.items : [ {tipo:"",op:"",color:"",categoria:"",cantidad_total:"",sizes:{},extra_sizes:{}} ];
-      items.forEach((it, idx) => {
-        const sizes = {};
-        for (const k of Object.keys(it.sizes || {})){
-          const v = Number(it.sizes[k]);
-          if (Number.isFinite(v) && v > 0) sizes[k] = v;
-        }
-        for (const k of Object.keys(it.extra_sizes || {})){
-          const v = Number(it.extra_sizes[k]);
-          if (Number.isFinite(v) && v > 0) sizes[k] = v;
-        }
-        rows.push({
-          ...base,
-          item_idx: idx+1,
-          tipo: it.tipo || "",
-          op: it.op || "",
-          color: it.color || "",
-          categoria: it.categoria || "",
-          cantidad_total: it.cantidad_total ?? "",
-          sizes_json: JSON.stringify(sizes),
-        });
-      });
-    }
-    return rows;
-  }
-
-  function toCsv(rows){
-    if (!rows.length) return "";
-    const headers = Object.keys(rows[0]);
-    const esc = (v) => {
-      const s = String(v ?? "");
-      if (/[\n\r",]/.test(s)) return '"' + s.replaceAll('"','""') + '"';
-      return s;
-    };
-    const out = [headers.join(",")];
-    for (const r of rows){
-      out.push(headers.map(h => esc(r[h])).join(","));
-    }
-    return out.join("\n");
-  }
-
-  function downloadText(filename, content, mime="text/plain"){
-    const blob = new Blob([content], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 2000);
-  }
-
-  // ------------------------------
-  // Main flows
-  // ------------------------------
-  async function processSunatUrl(url){
-    startJob();
-    lastSunatUrl = url;
-    els.lastUrl.textContent = url;
-
-    try{
-      setStatus("Descargando PDF…");
-      showModal("SUNAT", "Descargando PDF…");
-
-      let blob;
-      try{
-        blob = await fetchPdfBlob(url);
-      } catch (e){
-        // CORS or network
-        setStatus("CORS/Descarga bloqueada", "warn");
-        hideModal();
-        els.resultBox.innerHTML = `
-          <div class="dangerNote">
-            <b>No se pudo descargar el PDF desde el navegador.</b><br>
-            Motivo probable: <b>CORS</b> o bloqueo de SUNAT.<br><br>
-            <div class="row" style="gap:10px">
-              <button class="btn" onclick="window.open('${escapeHtml(url)}','_blank')">🔗 Abrir SUNAT</button>
-              <button class="btn good" onclick="document.getElementById('pdfInput').click()">📄 Subir PDF descargado</button>
-            </div>
-            <div class="muted small" style="margin-top:8px">Luego de abrir SUNAT, descarga el PDF y súbelo aquí para procesarlo.</div>
-          </div>
-        `;
-        return;
-      }
-
-      setStatus("Extrayendo texto…");
-      showModal("PDF", "Extrayendo texto (pdf.js)…");
-      let text = await extractTextFromPdfBlob(blob);
-
-      const shortText = normalizeLine(text).length < 80;
-      if ((els.chkOcrIfEmpty.checked && shortText) || els.chkOcrAllPages.checked){
-        setStatus("OCR en PDF…", "warn");
-        const ocrAll = els.chkOcrAllPages.checked;
-        text = await ocrPdfBlob(blob, ocrAll);
-      }
-
-      els.rawText.value = text;
-
-      setStatus("Analizando…");
-      showModal("Parser", "Analizando texto…");
-      current = parseSunatGreText(text);
-      current.source = "SUNAT_QR";
-
-      hideModal();
-      setStatus("OK", "ok");
-      renderCurrent();
-
-    } catch (err){
-      hideModal();
-      setStatus("Error", "err");
-      els.resultBox.innerHTML = `<div class='dangerNote'><b>Error:</b> ${escapeHtml(err?.message || String(err))}</div>`;
-      console.error(err);
-    }
-  }
-
-  async function processPdfFile(file){
-    startJob();
-    try{
-      showModal("PDF", "Leyendo archivo…");
-      const blob = file;
-      let text = await extractTextFromPdfBlob(blob);
-
-      const shortText = normalizeLine(text).length < 80;
-      if ((els.chkOcrIfEmpty.checked && shortText) || els.chkOcrAllPages.checked){
-        const ocrAll = els.chkOcrAllPages.checked;
-        text = await ocrPdfBlob(blob, ocrAll);
-      }
-
-      els.rawText.value = text;
-      showModal("Parser", "Analizando texto…");
-      current = parseSunatGreText(text);
-      current.source = "SUNAT_PDF";
-
-      hideModal();
-      setStatus("OK", "ok");
-      renderCurrent();
-    } catch (err){
-      hideModal();
-      setStatus("Error", "err");
-      els.resultBox.innerHTML = `<div class='dangerNote'><b>Error:</b> ${escapeHtml(err?.message || String(err))}</div>`;
-      console.error(err);
-    }
-  }
-
-  async function processManualOcr(){
-    startJob();
-    try{
-      showModal("OCR", "Reconociendo texto…");
-      const text = await runOcrOnCanvas(els.canvas);
-      els.rawText.value = text;
-
-      showModal("Parser", "Analizando OCR…");
-      current = parseManualGuideText(text);
-      current.source = "MANUAL_PHOTO";
-
-      hideModal();
-      setStatus("OK", "ok");
-      renderCurrent();
-    } catch (err){
-      hideModal();
-      setStatus("Error OCR", "err");
-      els.resultBox.innerHTML = `<div class='dangerNote'><b>Error:</b> ${escapeHtml(err?.message || String(err))}</div>`;
-      console.error(err);
-    }
-  }
-
-  function parseRawTextarea(){
-    const text = els.rawText.value || "";
-    if (!text.trim()){
-      setStatus("No hay texto", "warn");
-      return;
-    }
-    // Decide parser by heuristic: if looks like SUNAT / has EG07 etc
-    const U = text.toUpperCase();
-    current = (U.includes("ELECTR") || U.includes("GUÍA DE REMISIÓN") || U.includes("GUIA DE REMISION") || U.includes("UNIDAD (NIU)") || U.includes("HASHQR") || U.includes("EG"))
-      ? parseSunatGreText(text)
-      : parseManualGuideText(text);
-
-    setStatus("Parseado", "ok");
-    renderCurrent();
-  }
-
-  function clearAll(){
-    els.rawText.value = "";
-    ctx.clearRect(0,0,els.canvas.width, els.canvas.height);
-    current = null;
-    renderCurrent();
-    setStatus("Listo");
-  }
-
-  // ------------------------------
-  // QR scanner
-  // ------------------------------
-  async function startScanner(){
-    setStatus("Iniciando cámara…");
-    if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
-
-    const config = {
-      fps: 12,
-      qrbox: { width: 260, height: 260 },
-      formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ],
-      experimentalFeatures: { useBarCodeDetectorIfSupported: true }
-    };
-
-    const onSuccess = async (decodedText) => {
-      // stop after first read
-      try{ await stopScanner(); }catch{}
-
-      const clean = buildSunatUrl(decodedText) || decodedText;
-      if (clean.startsWith(SUNAT_PREFIX)){
-        setStatus("QR leído", "ok");
-        await processSunatUrl(clean);
-      } else {
-        setStatus("QR leído (no SUNAT)", "warn");
-        els.lastUrl.textContent = clean;
-      }
-    };
-
-    try{
-      await html5QrCode.start(
-        { facingMode: { exact: "environment" } },
-        config,
-        onSuccess,
-        () => {}
-      );
-      setStatus("Cámara trasera activa", "ok");
-    } catch (e){
-      // Fallback without exact
-      try{
-        await html5QrCode.start(
-          { facingMode: "environment" },
-          config,
-          onSuccess,
-          () => {}
-        );
-        setStatus("Cámara activa", "ok");
-      } catch (e2){
-        setStatus("No se pudo iniciar cámara", "err");
-        els.resultBox.innerHTML = `<div class='dangerNote'><b>Cámara:</b> ${escapeHtml(e2?.message || String(e2))}</div>`;
-      }
-    }
-  }
-
-  async function stopScanner(){
-    if (!html5QrCode) return;
-    try{ await html5QrCode.stop(); } catch {}
-    try{ await html5QrCode.clear(); } catch {}
-    setStatus("Cámara detenida");
-  }
-
-  // ------------------------------
-  // Self tests
-  // ------------------------------
-  function selfTest(){
-    // Minimal strings (representative) to validate regex + parsing
-    const samples = [
-      {
-        name: "EG07-00002901 (PRIMERAS)",
-        text:
-`RUC N°10100735658\nN° EG07 - 00002901\nFecha y hora de emisión :15/01/2026\nNom. o razon social del DESTINATARIO : CITI TEX S.A.C.\nRUC: 20522054331\n1 NO 01 SERVICIO DE CONFECCION - T SHIRT M/C OP:40559 COLOR: BLACK UNIDAD (NIU) 506.00\nPRIMERAS XXS=69 XS=57 S=109 M=110 L=114 XL=47`,
-        expect: { ruc:"10100735658", serie:"EG07", numero:"00002901", fecha:"15/01/2026", destRuc:"20522054331", op:"40559", color:"BLACK", sizeM:110 }
-      },
-      {
-        name: "EG07-00002903 (3 items categorias)",
-        text:
-`RUC N°10100735658\nN° EG07 - 00002903\nFecha y hora de emisión :15/01/2026\nDESTINATARIO\nCITI TEX S.A.C.\nRUC 20522054331\n1 NO 01 SERVICIO DE CONFECCION - T SHIRT M/C OP:40559 COLOR: BLACK UNIDAD (NIU) 12.00\nMANCHAS XS=2 S=3 M=7\n2 NO 01 SERVICIO DE CONFECCION - T SHIRT M/C OP:40559 COLOR: BLACK UNIDAD (NIU) 9.00\n2DA POR TONO XS=1 S=2 M=6\n3 NO 01 SERVICIO DE CONFECCION - T SHIRT M/C OP:40559 COLOR: BLACK UNIDAD (NIU) 5.00\nSEGUNDAS XS=1 S=1 M=3`,
-        expect: { items:3 }
-      },
-      {
-        name: "T003-00016066 (tallas numéricas -2 LT)",
-        text:
-`RUC N°20522054331\nN° T003 - 00016066\nFecha y hora de emisión :18/01/2026\nNom. o razon social del DESTINATARIO : COFACO INDUSTRIES S.A.C.\nRUC: 20550948029\nT-SHIRT M/C, JERSEY C/LYCRA HEATHERED CORE ULTRA LIGHT GREY-2 LT. UNIDAD (NIU) 269.00`,
-        expect: { serie:"T003", numero:"00016066", destRuc:"20550948029", numericSize:"2", qty:269 }
-      }
-    ];
-
-    const results = [];
-    for (const s of samples){
-      const parsed = parseSunatGreText(s.text);
-      const it0 = parsed.items?.[0] || {};
-      const ok = (
-        (!s.expect.ruc || parsed.remitente?.ruc === s.expect.ruc) &&
-        (!s.expect.serie || parsed.guia?.serie === s.expect.serie) &&
-        (!s.expect.numero || parsed.guia?.numero === s.expect.numero) &&
-        (!s.expect.fecha || parsed.fecha === s.expect.fecha) &&
-        (!s.expect.destRuc || parsed.destinatario?.ruc === s.expect.destRuc) &&
-        (!s.expect.op || it0.op === s.expect.op) &&
-        (!s.expect.color || it0.color === s.expect.color) &&
-        (!s.expect.sizeM || Number(it0.sizes?.M||0) === s.expect.sizeM) &&
-        (!s.expect.items || parsed.items.length === s.expect.items) &&
-        (!s.expect.numericSize || (Number(it0.sizes?.[s.expect.numericSize]||0) === s.expect.qty || Object.keys(it0.extra_sizes||{}).includes(s.expect.numericSize)))
-      );
-      results.push({ name: s.name, ok, parsed });
-    }
-
-    const passed = results.filter(r=>r.ok).length;
-    const total = results.length;
-
-    const html = `
-      <div class="goodNote">
-        <b>Self-test</b><br>
-        ${passed}/${total} pruebas OK
-      </div>
-      <div style="height:10px"></div>
-      ${results.map(r => `
-        <details ${r.ok?"":"open"}>
-          <summary>${r.ok ? "✅" : "❌"} ${escapeHtml(r.name)}</summary>
-          <pre class="mono small" style="white-space:pre-wrap; margin:10px 0 0">${escapeHtml(JSON.stringify(r.parsed, null, 2))}</pre>
-        </details>
-      `).join("")}
-    `;
-
-    els.resultBox.innerHTML = html;
-    setStatus(passed===total ? "Self-test OK" : "Self-test con fallas", passed===total?"ok":"warn");
-  }
-
-  // ------------------------------
-  // Event bindings
-  // ------------------------------
-  els.btnStartQR.addEventListener("click", startScanner);
-  els.btnStopQR.addEventListener("click", stopScanner);
-
-  els.btnOpenLastUrl.addEventListener("click", () => {
-    if (!lastSunatUrl) return;
-    window.open(lastSunatUrl, "_blank");
+    document.getElementById('btn-cancel-fallback').onclick = () => { modal.classList.add('hidden'); resolve(); };
+    modal.classList.remove('hidden');
   });
+}
 
-  els.btnProcessPdf.addEventListener("click", async () => {
-    const f = els.pdfInput.files?.[0];
-    if (!f){
-      setStatus("Selecciona un PDF", "warn");
-      return;
-    }
-    await processPdfFile(f);
-    els.pdfInput.value = "";
-  });
+async function processPdfBuffer(buffer, source, flags) {
+  showModal('Extrayendo texto del PDF…', 40);
+  const rawText = await extractTextFromPdf(buffer, (stage, pct) => {
+    showModal(stage, pct);
+    if (flags.cancelled) throw new Error('cancelled');
+  }, flags);
+  if (flags.cancelled) { hideModal(); return; }
+  showModal('Analizando guía…', 85);
+  const result = extractFromSunatText(rawText);
+  result.source = source;
+  hideModal();
+  showResults(result);
+}
 
-  els.btnManual.addEventListener("click", () => els.imgInput.click());
+/* ═══════════════════════════════════════════════════════════
+   8. FOTO / OCR
+   ═══════════════════════════════════════════════════════════ */
+function initPhotoCapture() {
+  document.getElementById('action-section').classList.add('hidden');
+  document.getElementById('photo-area').classList.remove('hidden');
+  AppState.photoRotation = 0;
+  const input = document.getElementById('input-photo');
+  input.value = '';
+  input.click();
+}
 
-  els.imgInput.addEventListener("change", async () => {
-    const f = els.imgInput.files?.[0];
-    if (!f) return;
-    try{
-      setStatus("Cargando imagen…");
-      const url = URL.createObjectURL(f);
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('input-photo').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
       const img = new Image();
-      img.onload = () => {
-        drawImageToCanvas(img);
-        URL.revokeObjectURL(url);
-        setStatus("Imagen cargada", "ok");
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        setStatus("Error imagen", "err");
-      };
-      img.src = url;
-    } finally {
-      els.imgInput.value = "";
-    }
+      img.onload = () => renderPhotoToCanvas(img, AppState.photoRotation);
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
   });
+});
 
-  els.btnRotate.addEventListener("click", () => {
-    rotateCanvas90();
-    setStatus("Rotado", "ok");
-  });
+function renderPhotoToCanvas(img, rotation) {
+  const canvas = document.getElementById('photo-canvas');
+  const ctx = canvas.getContext('2d');
+  const swap = rotation % 180 !== 0;
+  canvas.width  = swap ? img.height : img.width;
+  canvas.height = swap ? img.width  : img.height;
+  ctx.save();
+  ctx.translate(canvas.width/2, canvas.height/2);
+  ctx.rotate((rotation*Math.PI)/180);
+  ctx.drawImage(img, -img.width/2, -img.height/2);
+  ctx.restore();
+  // Guardar referencia de imagen original para rotar correctamente
+  canvas._currentImg = img;
+}
 
-  els.btnEnhance.addEventListener("click", () => {
-    enhanceCanvasBN();
-    setStatus("Mejorado (BN)", "ok");
-  });
+function rotatePhoto() {
+  AppState.photoRotation = (AppState.photoRotation + 90) % 360;
+  const canvas = document.getElementById('photo-canvas');
+  if (canvas._currentImg) {
+    renderPhotoToCanvas(canvas._currentImg, AppState.photoRotation);
+  } else {
+    // Rotar lo que hay en canvas
+    const ctx = canvas.getContext('2d');
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const tmp = document.createElement('canvas');
+    tmp.width = canvas.height; tmp.height = canvas.width;
+    const tc = tmp.getContext('2d');
+    tc.translate(tmp.width/2, tmp.height/2);
+    tc.rotate(Math.PI/2);
+    tc.putImageData(imageData, -canvas.width/2, -canvas.height/2);
+    canvas.width = tmp.width; canvas.height = tmp.height;
+    ctx.drawImage(tmp, 0, 0);
+  }
+}
 
-  els.btnOcr.addEventListener("click", processManualOcr);
+function enhancePhoto() {
+  const canvas = document.getElementById('photo-canvas');
+  const ctx = canvas.getContext('2d');
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
+    let c = ((gray - 128) * 1.6) + 128;
+    c = Math.max(0, Math.min(255, c));
+    data[i] = data[i+1] = data[i+2] = c;
+  }
+  ctx.putImageData(imageData, 0, 0);
+}
 
-  els.btnParseRaw.addEventListener("click", parseRawTextarea);
+async function doOcr() {
+  AppState.ocrCancelled = false;
+  const canvas = document.getElementById('photo-canvas');
+  showModal('Iniciando OCR…', 5);
+  try {
+    const worker = await Tesseract.createWorker('spa', 1, {
+      logger: (m) => {
+        if (AppState.ocrCancelled) return;
+        if (m.status === 'recognizing text') {
+          showModal(`OCR: ${Math.round(m.progress*100)}%…`, Math.round(m.progress*85)+10);
+        }
+      },
+    });
+    if (AppState.ocrCancelled) { await worker.terminate(); hideModal(); return; }
+    showModal('Reconociendo texto…', 50);
+    const { data } = await worker.recognize(canvas);
+    await worker.terminate();
+    if (AppState.ocrCancelled) { hideModal(); return; }
+    showModal('Analizando guía manual…', 90);
+    const result = extractFromManualOcrText(data.text, data.confidence);
+    hideModal();
+    showResults(result);
+  } catch (err) {
+    hideModal();
+    if (!AppState.ocrCancelled) showError('Error OCR: '+err.message);
+  }
+}
 
-  els.btnClear.addEventListener("click", clearAll);
+/* ═══════════════════════════════════════════════════════════
+   9. MODAL
+   ═══════════════════════════════════════════════════════════ */
+function showModal(stage, pct) {
+  document.getElementById('modal-stage').textContent = stage;
+  document.getElementById('modal-progress-fill').style.width = pct+'%';
+  document.getElementById('modal-progress-label').textContent = pct+'%';
+  document.getElementById('modal-processing').classList.remove('hidden');
+}
+function hideModal() { document.getElementById('modal-processing').classList.add('hidden'); }
 
-  els.btnSave.addEventListener("click", () => {
-    if (!current){
-      setStatus("Nada que guardar", "warn");
-      return;
-    }
-    // small cleanup: keep compact sizes in maps
-    history.push(structuredClone(current));
-    saveHistory();
-    renderHistory();
-    setStatus("Guardado", "ok");
-  });
+/* ═══════════════════════════════════════════════════════════
+   10. RENDERIZADO RESULTADOS
+   ═══════════════════════════════════════════════════════════ */
+function showResults(result) {
+  AppState.currentResult = result;
+  const panel = document.getElementById('results-panel');
+  panel.classList.remove('hidden');
+  panel.scrollIntoView({ behavior:'smooth', block:'start' });
 
-  els.btnExport.addEventListener("click", () => {
-    if (!history.length){
-      setStatus("Historial vacío", "warn");
-      return;
-    }
-    const rows = flattenToCsvRows(history);
-    const csv = toCsv(rows);
-    const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
-    downloadText(`gre_export_${ts}.csv`, csv, "text/csv;charset=utf-8");
-    setStatus("CSV exportado", "ok");
-  });
+  document.getElementById('result-source-badge').textContent =
+    result.source === 'SUNAT_QR' ? '● SUNAT QR / PDF' : '● Foto Manual OCR';
 
-  els.btnClearHist.addEventListener("click", () => {
-    if (!confirm("¿Borrar todo el historial local?")) return;
-    history = [];
-    saveHistory();
-    renderHistory();
-    setStatus("Historial borrado", "warn");
-  });
+  const metaRows = [
+    ['Guía',         `${result.guia.serie||'—'} - ${result.guia.numero||'—'}`],
+    ['Fecha',        result.fecha||'—'],
+    ['Remitente RUC',result.remitente.ruc||'—'],
+    ['Remitente',    result.remitente.nombre||'—'],
+    ['Destinatario', result.destinatario.nombre||'—'],
+    ['Dest. RUC',    result.destinatario.ruc||'—'],
+    ['Motivo',       result.motivo||'—'],
+    ['Observaciones',result.observaciones||'—'],
+    ['Conductor',    result.conductor||'—'],
+    ['Placa',        result.placa||'—'],
+  ];
+  if (result.ocrConfidenceSummary) metaRows.push(['Confianza OCR', result.ocrConfidenceSummary]);
 
-  els.btnSelfTest.addEventListener("click", selfTest);
+  document.getElementById('table-meta').innerHTML = metaRows.map(([k,v]) => `
+    <tr>
+      <td class="meta-key">${k}</td>
+      <td class="meta-val"><input class="meta-edit" data-key="${k}" value="${escHtml(v)}"></td>
+    </tr>`).join('');
 
-  // Also allow parse by pasting rawText
-  els.rawText.addEventListener("keydown", (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter"){
-      parseRawTextarea();
-    }
-  });
+  renderItemsTable(result.items);
+  document.getElementById('raw-text-output').textContent = result.rawText||'';
 
-  // Init
+  document.getElementById('table-meta').querySelectorAll('.meta-edit')
+    .forEach(inp => inp.addEventListener('input', syncMetaEdits));
+}
+
+function syncMetaEdits() {
+  const r = AppState.currentResult; if (!r) return;
+  const map = {};
+  document.getElementById('table-meta').querySelectorAll('.meta-edit')
+    .forEach(inp => { map[inp.dataset.key] = inp.value; });
+  r.guia.serie  = (map['Guía']||'').split('-')[0].trim();
+  r.guia.numero = (map['Guía']||'').split('-')[1]?.trim()||'';
+  r.fecha = map['Fecha']||'';
+  r.remitente.ruc = map['Remitente RUC']||'';
+  r.remitente.nombre = map['Remitente']||'';
+  r.destinatario.nombre = map['Destinatario']||'';
+  r.destinatario.ruc = map['Dest. RUC']||'';
+  r.motivo = map['Motivo']||'';
+  r.observaciones = map['Observaciones']||'';
+}
+
+function renderItemsTable(items) {
+  const table = document.getElementById('table-items');
+  if (!items || items.length === 0) {
+    table.innerHTML = '<tr><td colspan="7" style="color:var(--text-dim);text-align:center;padding:16px">No se detectaron items</td></tr>';
+    return;
+  }
+  const header = `<tr><th>#</th><th>Tipo / Descripción</th><th>OP</th><th>Color</th><th>Categoría</th><th>Tallas</th><th>Total</th></tr>`;
+  const rows = items.map((item, i) => {
+    const catCls = item.categoria ? 'cat-'+item.categoria.split(' ')[0] : 'cat-other';
+    const sizeTags = Object.entries(item.sizes||{})
+      .map(([sz,qty]) => `<span class="size-tag">${sz}: ${qty}</span>`).join('');
+    return `<tr>
+      <td>${i+1}</td>
+      <td class="item-desc">${escHtml(item.tipo||'—')}</td>
+      <td>${escHtml(item.op||'—')}</td>
+      <td>${escHtml(item.color||'—')}</td>
+      <td><span class="cat-badge ${catCls}">${escHtml(item.categoria||'—')}</span></td>
+      <td class="sizes-cell">${sizeTags||'—'}</td>
+      <td class="qty-cell">${item.cantidad_total??'—'}</td>
+    </tr>`;
+  }).join('');
+  table.innerHTML = header + rows;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   11. HISTORIAL
+   ═══════════════════════════════════════════════════════════ */
+function loadHistory() { try { return JSON.parse(localStorage.getItem(LS_KEY)||'[]'); } catch { return []; } }
+function saveHistory(h) { try { localStorage.setItem(LS_KEY, JSON.stringify(h.slice(0,MAX_HISTORY))); } catch(e) { console.warn(e); } }
+
+function addToHistory(result) {
+  const h = loadHistory();
+  h.unshift({ ...result, savedAt: new Date().toISOString(), id: Date.now() });
+  saveHistory(h);
   renderHistory();
-  renderCurrent();
+}
 
-  // Expose to window for the inline fallback buttons
-  window.processSunatUrl = processSunatUrl;
+function renderHistory() {
+  const history = loadHistory();
+  document.getElementById('history-count').textContent = history.length;
+  const list = document.getElementById('history-list');
+  if (history.length === 0) {
+    list.innerHTML = `<div class="empty-state"><span class="empty-icon">◫</span><p>No hay guías guardadas aún.<br>Escanea un QR o sube una foto para comenzar.</p></div>`;
+    return;
+  }
+  list.innerHTML = history.map(entry => {
+    const icon = entry.source==='SUNAT_QR' ? '⬡' : '◫';
+    const guiaStr = `${entry.guia?.serie||'?'}-${entry.guia?.numero||'?'}`;
+    const destStr = entry.destinatario?.nombre||entry.destinatario?.ruc||'Desconocido';
+    const dateStr = entry.fecha||(entry.savedAt?entry.savedAt.substring(0,10):'');
+    return `<div class="history-item" data-id="${entry.id}">
+      <span class="history-item-icon">${icon}</span>
+      <div class="history-item-main">
+        <div class="history-item-guia">${escHtml(guiaStr)}</div>
+        <div class="history-item-dest">${escHtml(destStr)}</div>
+      </div>
+      <span class="history-item-date">${escHtml(dateStr)}</span>
+      <button class="history-item-del" data-id="${entry.id}" title="Eliminar">✕</button>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.history-item').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target.classList.contains('history-item-del')) return;
+      const entry = loadHistory().find(h => h.id === parseInt(el.dataset.id));
+      if (entry) showResults(entry);
+    });
+  });
+  list.querySelectorAll('.history-item-del').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      saveHistory(loadHistory().filter(h => h.id !== parseInt(btn.dataset.id)));
+      renderHistory();
+    });
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   12. EXPORTACIÓN CSV
+   ═══════════════════════════════════════════════════════════ */
+function exportCsv() {
+  const history = loadHistory();
+  if (history.length === 0) { alert('No hay datos en el historial.'); return; }
+  const cols = ['source','fecha','serie','numero','remitente_ruc','remitente_nombre',
+    'destinatario_ruc','destinatario_nombre','motivo','observaciones','placa','conductor',
+    'item_idx','tipo','op','color','categoria','cantidad_total','sizes_json',...ALL_SIZES];
+  const rows = [cols.join(',')];
+  for (const entry of history) {
+    const items = entry.items?.length > 0 ? entry.items : [{}];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]||{};
+      const sizes = item.sizes||{};
+      rows.push([
+        entry.source||'', entry.fecha||'',
+        entry.guia?.serie||'', entry.guia?.numero||'',
+        entry.remitente?.ruc||'', entry.remitente?.nombre||'',
+        entry.destinatario?.ruc||'', entry.destinatario?.nombre||'',
+        entry.motivo||'', entry.observaciones||'',
+        entry.placa||'', entry.conductor||'',
+        i+1, item.tipo||'', item.op||'', item.color||'',
+        item.categoria||'', item.cantidad_total??'',
+        JSON.stringify(sizes),
+        ...ALL_SIZES.map(s => sizes[s]??''),
+      ].map(v => csvCell(String(v))).join(','));
+    }
+  }
+  const blob = new Blob(['\uFEFF'+rows.join('\r\n')], { type:'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `gre_sunat_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function csvCell(v) {
+  if (v.includes(',')||v.includes('"')||v.includes('\n')) return '"'+v.replace(/"/g,'""')+'"';
+  return v;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   13. SELF-TEST
+   ═══════════════════════════════════════════════════════════ */
+function selfTest() {
+  console.group('🧪 SELF-TEST GRE SUNAT EXTRACTOR');
+  let passed=0, failed=0;
+  function assert(label, cond, info) {
+    if (cond) { console.log(`  ✅ ${label}`); passed++; }
+    else { console.error(`  ❌ ${label}`, info); failed++; }
+  }
+
+  // TEST A: EG07-00002901
+  const rA = extractFromSunatText(`RUC N°10100735658
+GUÍA DE REMISIÓN ELECTRÓNICA REMITENTE N° EG07 - 00002901
+SAENZ JARA LENIN ELEODORO
+15/01/2026 04:36 PM
+Fecha de inicio de Traslado : 15/01/2026
+Datos del Destinatario :CITI TEX S.A.C. - REGISTRO ÚNICO DE CONTRIBUYENTES N° 20522054331
+Descripción de Motivo :SERVICIO DE CONFECCION
+SERVICIO DE CONFECCION - T SHIRT M/C OP:40559 COLOR: BLACK PRIMERAS XXS=69 XS=57 S=109 M=110 L=114 XL=47
+1 NO 01 UNIDAD (NIU) 506.00
+Observaciones : VAN 2 BOLSAS`);
+  assert('A: RUC remitente',       rA.remitente.ruc==='10100735658',       rA.remitente.ruc);
+  assert('A: Serie EG07',          rA.guia.serie==='EG07',                 rA.guia.serie);
+  assert('A: Número 00002901',     rA.guia.numero==='00002901',            rA.guia.numero);
+  assert('A: Fecha',               rA.fecha==='15/01/2026',                rA.fecha);
+  assert('A: Dest CITI TEX',       rA.destinatario.nombre.includes('CITI TEX'), rA.destinatario.nombre);
+  assert('A: Dest RUC',            rA.destinatario.ruc==='20522054331',    rA.destinatario.ruc);
+  assert('A: 1 item',              rA.items.length>=1,                     rA.items.length);
+  if(rA.items[0]) {
+    assert('A: OP 40559',          rA.items[0].op==='40559',               rA.items[0].op);
+    assert('A: Categoria PRIMERAS',rA.items[0].categoria==='PRIMERAS',     rA.items[0].categoria);
+    assert('A: Cantidad 506',      rA.items[0].cantidad_total===506,       rA.items[0].cantidad_total);
+    assert('A: XS=57',             rA.items[0].sizes['XS']===57,           rA.items[0].sizes);
+    assert('A: M=110',             rA.items[0].sizes['M']===110,           rA.items[0].sizes);
+  }
+
+  // TEST B: EG07-00002903 (múltiples items)
+  const rB = extractFromSunatText(`RUC N°10100735658
+GUÍA DE REMISIÓN ELECTRÓNICA REMITENTE N° EG07 - 00002903
+Datos del Destinatario :CITI TEX S.A.C. - REGISTRO ÚNICO DE CONTRIBUYENTES N° 20522054331
+SERVICIO DE CONFECCION - T SHIRT M/C OP: 40559 COLOR BLACK MANCHAS XS=1 S=2 M=13 L=5 XL=1
+1 NO 01 UNIDAD (NIU) 22.00
+SERVICIO DE CONFECCION - T SHIRT M/C OP: 40559 COLOR BLACK 2DA POR TONO XS=1 S=3 M=16 L=10 XL=1
+2 NO 01 UNIDAD (NIU) 31.00
+SERVICIO DE CONFECCION - T SHIRT M/C OP: 40559 COLOR BLACK SEGUNDAS XXS=8 XS=4 S=18 M=14 L=10 XL=4
+3 NO 01 UNIDAD (NIU) 58.00`);
+  assert('B: 3 items',             rB.items.length===3,                    rB.items.length);
+  if(rB.items[0]) assert('B: Item1 MANCHAS',    rB.items[0].categoria==='MANCHAS',      rB.items[0].categoria);
+  if(rB.items[1]) assert('B: Item2 2DA',         rB.items[1].categoria?.startsWith('2DA'), rB.items[1].categoria);
+  if(rB.items[2]) assert('B: Item3 SEGUNDAS',    rB.items[2].categoria==='SEGUNDAS',     rB.items[2].categoria);
+  if(rB.items[0]) assert('B: Item1 qty 22',      rB.items[0].cantidad_total===22,        rB.items[0].cantidad_total);
+  if(rB.items[2]) assert('B: Item3 XXS=8',       rB.items[2].sizes['XXS']===8,           rB.items[2].sizes);
+
+  // TEST C: T003-00016066 (tallas numéricas)
+  const rC = extractFromSunatText(`RUC N°20522054331
+GUÍA DE REMISIÓN ELECTRÓNICA REMITENTE N° T003 - 00016066
+CITI TEX S.A.C.
+26/08/2025
+Datos del Destinatario :COFACO INDUSTRIES S.A.C. - REGISTRO ÚNICO DE CONTRIBUYENTES N° 20550948029
+1 NO 1000317486 T-SHIRT M/C, JERSEY C/LYCRA HEATHERED CORE ULTRA LIGHT GREY-2 LT. 1 UNIDAD 28.00
+2 NO 1000317487 T-SHIRT M/C, JERSEY C/LYCRA HEATHERED CORE ULTRA LIGHT GREY-4 LT. 1 UNIDAD 54.00
+3 NO 1000317488 T-SHIRT M/C, JERSEY C/LYCRA HEATHERED CORE ULTRA LIGHT GREY-6 LT. 1 UNIDAD 187.00
+4 NO 1000317489 T-SHIRT M/C, JERSEY C/LYCRA HEATHERED CORE ULTRA LIGHT GREY-8 LT. 1 UNIDAD 135.00
+5 NO 1000317490 T-SHIRT M/C, JERSEY C/LYCRA HEATHERED CORE ULTRA LIGHT GREY-10 LT. 1 UNIDAD 182.00
+6 NO 1000317491 T-SHIRT M/C, JERSEY C/LYCRA HEATHERED CORE ULTRA LIGHT GREY-12 LT. 1 UNIDAD 152.00
+7 NO 1000317492 T-SHIRT M/C, JERSEY C/LYCRA HEATHERED CORE ULTRA LIGHT GREY-14 LT. 1 UNIDAD 99.00
+8 NO 1000317494 T-SHIRT M/C, JERSEY C/LYCRA HEATHERED CORE ULTRA LIGHT GREY-18 LT. 1 UNIDAD 44.00`);
+  assert('C: RUC 20522054331',     rC.remitente.ruc==='20522054331',       rC.remitente.ruc);
+  assert('C: Serie T003',          rC.guia.serie==='T003',                 rC.guia.serie);
+  assert('C: Número 00016066',     rC.guia.numero==='00016066',            rC.guia.numero);
+  assert('C: Dest COFACO',         rC.destinatario.nombre.includes('COFACO'), rC.destinatario.nombre);
+  assert('C: Dest RUC',            rC.destinatario.ruc==='20550948029',    rC.destinatario.ruc);
+  if(rC.items[0]) {
+    assert('C: Talla 2=28',        rC.items[0].sizes['2']===28,            rC.items[0].sizes);
+    assert('C: Talla 6=187',       rC.items[0].sizes['6']===187,           rC.items[0].sizes);
+    assert('C: Talla 18=44',       rC.items[0].sizes['18']===44,           rC.items[0].sizes);
+  }
+
+  // TEST D: Manual OCR
+  const rD = extractFromManualOcrText(`TEXTILERIA FRANCIS Y C.M. RUC. 20607766453
+GUIA DE REMISION - REMITENTE 001 - N° 003386
+Fecha de Emision 29 de enero del 2026
+Servicio de confeccion
+OP 40272 color Stone will
+45 tallas M-24 L-21
+01 bolsa`, 72);
+  assert('D: RUC 20607766453',     rD.remitente.ruc==='20607766453',       rD.remitente.ruc);
+  assert('D: Serie 001',           rD.guia.serie==='001',                  rD.guia.serie);
+  assert('D: Fecha enero',         rD.fecha.includes('01'),                rD.fecha);
+  assert('D: OP 40272',            rD.items[0]?.op==='40272',              rD.items[0]);
+  assert('D: M=24',                rD.items[0]?.sizes['M']===24,           rD.items[0]?.sizes);
+  assert('D: L=21',                rD.items[0]?.sizes['L']===21,           rD.items[0]?.sizes);
+
+  console.log(`\n📊 Resultado: ${passed} pasados, ${failed} fallidos`);
+  console.groupEnd();
+  alert(failed===0
+    ? `✅ Todos los ${passed} tests pasaron correctamente.`
+    : `⚠️ ${failed} test(s) fallaron. Revisa la consola (F12) para detalles.`);
+}
+window.selfTest = selfTest; // exponer globalmente
+
+/* ═══════════════════════════════════════════════════════════
+   14. UTILIDADES
+   ═══════════════════════════════════════════════════════════ */
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function showError(msg) { alert('❌ '+msg); }
+
+/* ═══════════════════════════════════════════════════════════
+   15. EVENT LISTENERS
+   ═══════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  renderHistory();
+
+  document.getElementById('btn-scan-qr').addEventListener('click', initQrScanner);
+  document.getElementById('btn-stop-qr').addEventListener('click', stopQrScanner);
+  document.getElementById('btn-photo-manual').addEventListener('click', initPhotoCapture);
+
+  document.getElementById('btn-upload-pdf-direct').addEventListener('click', () =>
+    document.getElementById('input-pdf-direct').click());
+  document.getElementById('input-pdf-direct').addEventListener('change', async (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    await processPdfBuffer(await file.arrayBuffer(), 'SUNAT_QR', { cancelled: false });
+  });
+
+  document.getElementById('btn-rotate').addEventListener('click', rotatePhoto);
+  document.getElementById('btn-enhance').addEventListener('click', enhancePhoto);
+  document.getElementById('btn-do-ocr').addEventListener('click', doOcr);
+
+  document.getElementById('btn-cancel').addEventListener('click', () => {
+    AppState.ocrCancelled = true;
+    if (AppState.abortController) AppState.abortController.abort();
+    if (AppState.html5QrCode) { AppState.html5QrCode.stop().catch(()=>{}); AppState.html5QrCode = null; }
+    hideModal();
+  });
+
+  document.getElementById('btn-save-result').addEventListener('click', () => {
+    if (!AppState.currentResult) return;
+    syncMetaEdits();
+    addToHistory(AppState.currentResult);
+    document.getElementById('results-panel').classList.add('hidden');
+    document.getElementById('action-section').classList.remove('hidden');
+    document.getElementById('photo-area').classList.add('hidden');
+    AppState.currentResult = null;
+    alert('✅ Guía guardada en el historial.');
+  });
+
+  document.getElementById('btn-discard-result').addEventListener('click', () => {
+    if (confirm('¿Descartar el resultado actual?')) {
+      document.getElementById('results-panel').classList.add('hidden');
+      document.getElementById('action-section').classList.remove('hidden');
+      document.getElementById('photo-area').classList.add('hidden');
+      AppState.currentResult = null;
+    }
+  });
+
+  document.getElementById('btn-export-csv').addEventListener('click', exportCsv);
+  document.getElementById('btn-clear-history').addEventListener('click', () => {
+    if (confirm('¿Borrar todo el historial?')) { localStorage.removeItem(LS_KEY); renderHistory(); }
+  });
+
+  document.getElementById('btn-self-test').addEventListener('click', selfTest);
+  console.log('GRE SUNAT Extractor listo. Escribe selfTest() en consola para probar el parser.');
+});
 </script>
 </body>
 </html>
