@@ -1,1373 +1,310 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#0d1117">
-  <title>GRE SUNAT | Extractor</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
-
-<style>
-/* ═══════════════════════════════════════════════════════════
-   GRE SUNAT EXTRACTOR — DARK INDUSTRIAL THEME
-   ═══════════════════════════════════════════════════════════ */
-:root {
-  --bg-base:        #0d1117;
-  --bg-surface:     #161b22;
-  --bg-raised:      #1f2937;
-  --bg-card:        #21262d;
-  --border:         #30363d;
-  --border-light:   #3d444d;
-  --amber:          #f59e0b;
-  --amber-dim:      #b45309;
-  --amber-glow:     rgba(245,158,11,0.15);
-  --amber-glow2:    rgba(245,158,11,0.08);
-  --text-primary:   #e6edf3;
-  --text-secondary: #8b949e;
-  --text-dim:       #484f58;
-  --green:          #3fb950;
-  --red:            #f85149;
-  --blue:           #58a6ff;
-  --radius:         6px;
-  --radius-lg:      10px;
-  --transition:     0.18s ease;
-  --font-ui:        'Barlow', system-ui, sans-serif;
-  --font-mono:      'Space Mono', monospace;
-  --font-head:      'Barlow Condensed', 'Barlow', sans-serif;
-}
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body {
-  height: 100%; background: var(--bg-base); color: var(--text-primary);
-  font-family: var(--font-ui); font-size: 15px; line-height: 1.55;
-  overscroll-behavior: none;
-}
-.hidden { display: none !important; }
-.mt-sm { margin-top: 12px; }
-.badge {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 22px; height: 22px; padding: 0 6px;
-  background: var(--amber-glow); border: 1px solid var(--amber-dim);
-  color: var(--amber); border-radius: 20px;
-  font-size: 11px; font-family: var(--font-mono); font-weight: 700;
-}
-
-/* ─── MODAL ─── */
-.modal {
-  position: fixed; inset: 0; z-index: 1000;
-  background: rgba(0,0,0,0.78);
-  display: flex; align-items: center; justify-content: center;
-  padding: 20px; backdrop-filter: blur(4px);
-}
-.modal-content {
-  background: var(--bg-card); border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg); padding: 32px 28px;
-  max-width: 360px; width: 100%; text-align: center;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-}
-.modal-fallback { text-align: left; max-width: 420px; }
-.modal-fallback h3 {
-  font-family: var(--font-head); font-size: 20px;
-  color: var(--amber); margin-bottom: 10px; letter-spacing: 0.5px;
-}
-.fallback-hint { color: var(--text-secondary); font-size: 13px; margin-bottom: 16px; }
-.fallback-url {
-  font-family: var(--font-mono); font-size: 10px;
-  color: var(--text-dim); background: var(--bg-base);
-  border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 8px; margin-bottom: 16px; word-break: break-all;
-  max-height: 60px; overflow-y: auto;
-}
-.fallback-actions { display: flex; flex-direction: column; gap: 10px; }
-.spinner {
-  width: 44px; height: 44px; margin: 0 auto 18px;
-  border: 3px solid var(--border-light); border-top-color: var(--amber);
-  border-radius: 50%; animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.modal-stage {
-  font-family: var(--font-head); font-size: 17px; font-weight: 700;
-  color: var(--text-primary); letter-spacing: 0.5px; margin-bottom: 14px;
-}
-.modal-progress-bar {
-  height: 4px; background: var(--bg-raised);
-  border-radius: 2px; overflow: hidden; margin-bottom: 8px;
-}
-.modal-progress-fill { height: 100%; background: var(--amber); transition: width 0.3s ease; }
-.modal-progress-label {
-  font-family: var(--font-mono); font-size: 12px;
-  color: var(--text-secondary); margin-bottom: 20px;
-}
-
-/* ─── BUTTONS ─── */
-button, .btn-primary, .btn-secondary, .btn-cancel, .btn-danger, .btn-tool, .file-label {
-  cursor: pointer; border: none; border-radius: var(--radius);
-  font-family: var(--font-ui); font-weight: 600; font-size: 14px;
-  line-height: 1; transition: var(--transition); text-decoration: none;
-  display: inline-flex; align-items: center; justify-content: center;
-  gap: 6px; padding: 11px 18px;
-}
-.btn-primary { background: var(--amber); color: #000; }
-.btn-primary:hover { background: #fbbf24; }
-.btn-primary:active { background: var(--amber-dim); }
-.btn-secondary {
-  background: var(--bg-raised); color: var(--text-primary);
-  border: 1px solid var(--border-light);
-}
-.btn-secondary:hover { border-color: var(--amber-dim); color: var(--amber); }
-.btn-cancel {
-  background: transparent; color: var(--text-secondary);
-  border: 1px solid var(--border); font-size: 13px; padding: 9px 16px; width: 100%;
-}
-.btn-cancel:hover { background: var(--bg-raised); color: var(--red); border-color: var(--red); }
-.btn-danger {
-  background: transparent; color: var(--red);
-  border: 1px solid rgba(248,81,73,0.35);
-}
-.btn-danger:hover { background: rgba(248,81,73,0.12); border-color: var(--red); }
-.btn-sm { padding: 7px 13px; font-size: 12px; }
-.btn-wide { width: 100%; }
-.btn-tool {
-  background: var(--bg-raised); color: var(--text-secondary);
-  border: 1px solid var(--border); font-size: 12px; padding: 7px 12px;
-}
-.btn-tool:hover { color: var(--amber); border-color: var(--amber-dim); }
-.file-label {
-  background: var(--amber); color: #000; padding: 11px 18px;
-  text-align: center; cursor: pointer;
-}
-.file-label:hover { background: #fbbf24; }
-.btn-icon-tool {
-  background: transparent; color: var(--text-secondary);
-  border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 7px 10px; font-size: 16px;
-}
-.btn-icon-tool:hover { color: var(--amber); border-color: var(--amber-dim); }
-
-/* ─── HEADER ─── */
-.app-header {
-  position: sticky; top: 0; z-index: 100;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 16px; background: var(--bg-surface);
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 2px 20px rgba(0,0,0,0.4);
-}
-.header-brand { display: flex; align-items: center; gap: 12px; }
-.header-logo { font-size: 28px; color: var(--amber); line-height: 1; text-shadow: 0 0 20px var(--amber-glow); }
-.header-text h1 {
-  font-family: var(--font-head); font-size: 20px; font-weight: 700;
-  letter-spacing: 2px; color: var(--amber); line-height: 1.1;
-}
-.header-sub { font-size: 10px; color: var(--text-dim); letter-spacing: 0.5px; text-transform: uppercase; }
-.header-tools { display: flex; gap: 8px; }
-
-/* ─── MAIN ─── */
-.app-main {
-  max-width: 720px; margin: 0 auto;
-  padding: 16px 12px 60px;
-  display: flex; flex-direction: column; gap: 16px;
-}
-
-/* ─── ACTION SECTION ─── */
-.action-section { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.btn-action {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 6px; padding: 22px 12px;
-  background: var(--bg-card); border: 1px solid var(--border-light) !important;
-  border-radius: var(--radius-lg); cursor: pointer; transition: var(--transition);
-  text-align: center; position: relative; overflow: hidden;
-}
-.btn-action::before {
-  content: ''; position: absolute; inset: 0;
-  background: var(--amber-glow2); opacity: 0; transition: opacity 0.3s;
-}
-.btn-action:hover::before { opacity: 1; }
-.btn-action:hover { border-color: var(--amber-dim) !important; transform: translateY(-1px); }
-.btn-action:active { transform: translateY(0); }
-.btn-icon-big { font-size: 28px; color: var(--amber); text-shadow: 0 0 15px var(--amber-glow); }
-.btn-label { font-family: var(--font-head); font-size: 14px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.5px; }
-.btn-sub { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
-
-/* ─── QR SCANNER ─── */
-.scanner-area {
-  background: var(--bg-card); border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg); overflow: hidden;
-}
-.scanner-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 14px; border-bottom: 1px solid var(--border);
-}
-.scanner-title {
-  font-family: var(--font-head); font-size: 13px; font-weight: 600;
-  color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.8px;
-}
-.qr-reader-container { background: #000; }
-#qr-reader { width: 100% !important; border: none !important; }
-#qr-reader video { width: 100% !important; border-radius: 0 !important; }
-#qr-reader__scan_region { border: none !important; }
-.last-url { padding: 10px 14px; border-top: 1px solid var(--border); }
-.url-label { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 2px; }
-.url-text { font-family: var(--font-mono); font-size: 10px; color: var(--blue); word-break: break-all; }
-
-/* ─── PHOTO AREA ─── */
-.photo-area {
-  background: var(--bg-card); border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg); overflow: hidden;
-  display: flex; flex-direction: column;
-}
-.photo-controls-top {
-  display: flex; gap: 8px; padding: 10px 12px;
-  border-bottom: 1px solid var(--border); flex-wrap: wrap;
-}
-.photo-preview-container {
-  position: relative; background: #000; min-height: 200px;
-  display: flex; align-items: center; justify-content: center;
-}
-.photo-canvas { max-width: 100%; max-height: 450px; display: block; }
-.photo-controls-bottom { padding: 10px 12px; border-top: 1px solid var(--border); }
-
-/* ─── RESULTS PANEL ─── */
-.results-panel {
-  background: var(--bg-card); border: 1px solid var(--amber-dim);
-  border-radius: var(--radius-lg); overflow: hidden;
-  box-shadow: 0 0 30px var(--amber-glow2);
-}
-.panel-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 14px; background: var(--bg-surface);
-  border-bottom: 1px solid var(--border);
-}
-.panel-title {
-  font-family: var(--font-head); font-size: 16px; font-weight: 700;
-  letter-spacing: 1px; color: var(--text-primary);
-  display: flex; align-items: center; gap: 8px;
-}
-.panel-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.result-source-badge {
-  margin: 10px 14px 0; display: inline-block; padding: 3px 10px;
-  font-size: 10px; font-family: var(--font-mono); font-weight: 700;
-  letter-spacing: 1px; border-radius: 20px;
-  border: 1px solid var(--amber-dim); color: var(--amber); background: var(--amber-glow2);
-}
-.result-section { padding: 14px; border-bottom: 1px solid var(--border); }
-.result-section:last-of-type { border-bottom: none; }
-.section-label {
-  font-family: var(--font-head); font-size: 11px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: 1.5px;
-  color: var(--text-dim); margin-bottom: 10px;
-}
-
-/* ─── DATA TABLES ─── */
-.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.data-table th, .data-table td {
-  padding: 7px 10px; text-align: left;
-  border-bottom: 1px solid var(--border); vertical-align: top;
-}
-.data-table th {
-  font-family: var(--font-head); font-size: 10px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: 1px;
-  color: var(--text-dim); background: var(--bg-surface); white-space: nowrap;
-}
-.data-table td { color: var(--text-primary); }
-.data-table tr:last-child td { border-bottom: none; }
-.data-table tr:hover td { background: var(--bg-raised); }
-.data-table .meta-key { color: var(--text-secondary); font-size: 12px; white-space: nowrap; min-width: 130px; font-weight: 500; }
-.data-table .meta-val { font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); }
-.data-table input.meta-edit {
-  background: var(--bg-base); border: 1px solid var(--border);
-  border-radius: 4px; color: var(--text-primary);
-  font-family: var(--font-mono); font-size: 12px;
-  padding: 3px 7px; width: 100%;
-}
-.data-table input.meta-edit:focus { outline: none; border-color: var(--amber); }
-.table-scroll { overflow-x: auto; }
-.items-table { min-width: 520px; }
-.items-table .item-desc { max-width: 180px; }
-.sizes-cell { font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); line-height: 1.8; }
-.size-tag {
-  display: inline-block; margin: 1px 3px;
-  background: var(--bg-raised); border: 1px solid var(--border-light);
-  border-radius: 3px; padding: 1px 5px;
-  font-size: 10px; font-family: var(--font-mono); color: var(--amber); white-space: nowrap;
-}
-.qty-cell { font-family: var(--font-mono); font-weight: 700; color: var(--amber); font-size: 14px; }
-.cat-badge {
-  display: inline-block; padding: 2px 7px;
-  font-size: 10px; font-weight: 700;
-  border-radius: 3px; letter-spacing: 0.5px;
-}
-.cat-PRIMERAS { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
-.cat-SEGUNDAS { background: rgba(251,146,60,0.15); color: #fb923c; border: 1px solid rgba(251,146,60,0.3); }
-.cat-MANCHAS  { background: rgba(248,81,73,0.15); color: #f87171; border: 1px solid rgba(248,81,73,0.3); }
-.cat-TALLAS   { background: rgba(63,185,80,0.15); color: #4ade80; border: 1px solid rgba(63,185,80,0.3); }
-.cat-other    { background: var(--bg-raised); color: var(--text-secondary); border: 1px solid var(--border); }
-.raw-details { border-top: 1px solid var(--border); }
-.raw-details summary { padding: 10px 14px; font-size: 12px; color: var(--text-dim); cursor: pointer; user-select: none; }
-.raw-details summary:hover { color: var(--text-secondary); }
-.raw-text {
-  padding: 12px 14px; font-family: var(--font-mono); font-size: 10px;
-  color: var(--text-dim); line-height: 1.6; white-space: pre-wrap; word-break: break-all;
-  background: var(--bg-base); max-height: 250px; overflow-y: auto;
-  border-top: 1px solid var(--border);
-}
-
-/* ─── HISTORY ─── */
-.history-panel {
-  background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); overflow: hidden;
-}
-.history-list { display: flex; flex-direction: column; }
-.empty-state { text-align: center; padding: 40px 20px; color: var(--text-dim); }
-.empty-icon { font-size: 32px; display: block; margin-bottom: 12px; opacity: 0.3; }
-.empty-state p { font-size: 13px; line-height: 1.6; }
-.history-item {
-  padding: 12px 14px; border-bottom: 1px solid var(--border);
-  cursor: pointer; transition: background 0.15s;
-  display: flex; align-items: flex-start; gap: 12px;
-}
-.history-item:last-child { border-bottom: none; }
-.history-item:hover { background: var(--bg-raised); }
-.history-item-icon { font-size: 18px; flex-shrink: 0; margin-top: 2px; opacity: 0.6; }
-.history-item-main { flex: 1; min-width: 0; }
-.history-item-guia { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--amber); }
-.history-item-dest { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.history-item-date { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); flex-shrink: 0; }
-.history-item-del {
-  background: transparent; border: none; color: var(--text-dim);
-  font-size: 16px; cursor: pointer; padding: 2px 6px; flex-shrink: 0; border-radius: 4px;
-}
-.history-item-del:hover { color: var(--red); background: rgba(248,81,73,0.1); }
-
-/* ─── FOOTER ─── */
-.app-footer { text-align: center; padding: 16px; font-size: 10px; color: var(--text-dim); letter-spacing: 0.5px; text-transform: uppercase; }
-
-/* ─── SCROLLBAR ─── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--bg-surface); }
-::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
-
-/* ─── RESPONSIVE ─── */
-@media (max-width: 480px) {
-  .action-section { grid-template-columns: 1fr; }
-  .btn-action { flex-direction: row; gap: 14px; padding: 16px 14px; text-align: left; }
-  .btn-icon-big { font-size: 22px; }
-  .btn-sub { display: none; }
-  .panel-header { flex-direction: column; align-items: flex-start; gap: 8px; }
-  .panel-actions { width: 100%; }
-  .panel-actions button { flex: 1; }
-}
-</style>
-</head>
-<body>
-
-<!-- ═══════ MODAL: PROCESANDO ═══════ -->
-<div id="modal-processing" class="modal hidden" role="dialog" aria-modal="true">
-  <div class="modal-content">
-    <div class="spinner"></div>
-    <div id="modal-stage" class="modal-stage">Iniciando…</div>
-    <div class="modal-progress-bar"><div id="modal-progress-fill" class="modal-progress-fill" style="width:0%"></div></div>
-    <div id="modal-progress-label" class="modal-progress-label">0%</div>
-    <button id="btn-cancel" class="btn-cancel">✕ Cancelar</button>
-  </div>
-</div>
-
-<!-- ═══════ MODAL: FALLBACK PDF ═══════ -->
-<div id="modal-pdf-fallback" class="modal hidden" role="dialog" aria-modal="true">
-  <div class="modal-content modal-fallback">
-    <h3>No se pudo descargar el PDF</h3>
-    <p class="fallback-hint">El servidor SUNAT bloquea la descarga directa (CORS).<br>Descarga el PDF manualmente y súbelo aquí.</p>
-    <div id="fallback-url-display" class="fallback-url"></div>
-    <div class="fallback-actions">
-      <button id="btn-open-pdf-fallback" class="btn-secondary">↗ Abrir PDF en nueva pestaña</button>
-      <label for="input-pdf-fallback" class="btn-primary file-label">
-        ⬆ Subir PDF descargado
-        <input type="file" id="input-pdf-fallback" accept="application/pdf" class="hidden">
-      </label>
-    </div>
-    <button id="btn-cancel-fallback" class="btn-cancel mt-sm">✕ Cancelar</button>
-  </div>
-</div>
-
-<!-- ═══════ HEADER ═══════ -->
-<header class="app-header">
-  <div class="header-brand">
-    <div class="header-logo">▣</div>
-    <div class="header-text">
-      <h1>GRE SUNAT</h1>
-      <span class="header-sub">Extractor de Guías de Remisión</span>
-    </div>
-  </div>
-  <div class="header-tools">
-    <button id="btn-upload-pdf-direct" class="btn-icon-tool" title="Subir PDF directamente">📁</button>
-    <button id="btn-self-test" class="btn-icon-tool" title="Ejecutar pruebas internas (selfTest)">⚡</button>
-  </div>
-</header>
-
-<main class="app-main">
-
-  <!-- ═══════ ACCIONES PRINCIPALES ═══════ -->
-  <section class="action-section" id="action-section">
-    <button id="btn-scan-qr" class="btn-action btn-qr">
-      <span class="btn-icon-big">⬡</span>
-      <span class="btn-label">Escanear QR SUNAT</span>
-      <span class="btn-sub">Cámara → PDF automático</span>
-    </button>
-    <button id="btn-photo-manual" class="btn-action btn-photo">
-      <span class="btn-icon-big">◫</span>
-      <span class="btn-label">Foto Guía Manual</span>
-      <span class="btn-sub">Captura → OCR local</span>
-    </button>
-  </section>
-
-  <!-- ═══════ ÁREA QR SCANNER ═══════ -->
-  <section id="qr-scanner-area" class="scanner-area hidden">
-    <div class="scanner-header">
-      <span class="scanner-title">Apunta al código QR SUNAT</span>
-      <button id="btn-stop-qr" class="btn-sm btn-secondary">Detener</button>
-    </div>
-    <div id="qr-reader" class="qr-reader-container"></div>
-    <div id="last-url-display" class="last-url hidden">
-      <span class="url-label">URL detectada:</span>
-      <span id="last-url-text" class="url-text"></span>
-    </div>
-  </section>
-
-  <!-- ═══════ ÁREA FOTO MANUAL ═══════ -->
-  <section id="photo-area" class="photo-area hidden">
-    <input type="file" id="input-photo" accept="image/*" capture="environment" class="hidden">
-    <div id="photo-controls-top" class="photo-controls-top">
-      <label for="input-photo" class="btn-secondary btn-sm">📷 Cambiar imagen</label>
-      <button id="btn-rotate" class="btn-tool">↻ Rotar</button>
-      <button id="btn-enhance" class="btn-tool">◑ Mejorar</button>
-    </div>
-    <div id="photo-preview-container" class="photo-preview-container">
-      <canvas id="photo-canvas" class="photo-canvas"></canvas>
-    </div>
-    <div class="photo-controls-bottom">
-      <button id="btn-do-ocr" class="btn-primary btn-wide">🔍 Extraer texto (OCR)</button>
-    </div>
-  </section>
-
-  <!-- Input PDF directo (header) -->
-  <input type="file" id="input-pdf-direct" accept="application/pdf" class="hidden">
-
-  <!-- ═══════ PANEL RESULTADOS ═══════ -->
-  <section id="results-panel" class="results-panel hidden">
-    <div class="panel-header">
-      <h2 class="panel-title">Resultado</h2>
-      <div class="panel-actions">
-        <button id="btn-save-result" class="btn-primary btn-sm">💾 Guardar</button>
-        <button id="btn-discard-result" class="btn-secondary btn-sm">✕ Descartar</button>
-      </div>
-    </div>
-    <div class="result-source-badge" id="result-source-badge"></div>
-    <div class="result-section">
-      <h3 class="section-label">Datos de la Guía</h3>
-      <table id="table-meta" class="data-table"></table>
-    </div>
-    <div class="result-section">
-      <h3 class="section-label">Items / Bienes</h3>
-      <div class="table-scroll">
-        <table id="table-items" class="data-table items-table"></table>
-      </div>
-    </div>
-    <details class="raw-details">
-      <summary>Ver texto extraído (debug)</summary>
-      <pre id="raw-text-output" class="raw-text"></pre>
-    </details>
-  </section>
-
-  <!-- ═══════ HISTORIAL ═══════ -->
-  <section id="history-panel" class="history-panel">
-    <div class="panel-header">
-      <h2 class="panel-title">
-        Historial
-        <span id="history-count" class="badge">0</span>
-      </h2>
-      <div class="panel-actions">
-        <button id="btn-export-csv" class="btn-primary btn-sm">⬇ CSV</button>
-        <button id="btn-clear-history" class="btn-danger btn-sm">🗑 Limpiar</button>
-      </div>
-    </div>
-    <div id="history-list" class="history-list">
-      <div class="empty-state">
-        <span class="empty-icon">◫</span>
-        <p>No hay guías guardadas aún.<br>Escanea un QR o sube una foto para comenzar.</p>
-      </div>
-    </div>
-  </section>
-
-  <footer class="app-footer">
-    GRE SUNAT Extractor · 100% local · Sin servidores
-  </footer>
-</main>
-
-<!-- ═══════ SCRIPTS CDN ═══════ -->
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-
-<script>
-'use strict';
-
-/* ═══════════════════════════════════════════════════════════
-   1. CONFIGURACIÓN
-   ═══════════════════════════════════════════════════════════ */
-if (typeof pdfjsLib !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-}
-
-const ALL_SIZES = [
-  'XXXS','XXS','XS','S','M','L','XL','XXL','XXXL',
-  '1X','2XL','3XL','4XL','5XL','MT','LT','XLT','XXLT',
-  '0','2','4','6','8','10','12','14','16','18','20'
-];
-const SIZES_REGEX_SRC = 'XXXS|XXS|XXLT|XLT|XL|XS|XXL|XXXL|2XL|3XL|4XL|5XL|1X|MT|LT|S|M|L';
-const LS_KEY = 'gre_sunat_history';
-const MAX_HISTORY = 100;
-
-const AppState = {
-  currentResult: null,
-  abortController: null,
-  ocrCancelled: false,
-  html5QrCode: null,
-  photoRotation: 0,
-  lastQrUrl: null,
-};
-
-/* ═══════════════════════════════════════════════════════════
-   2. NORMALIZACIÓN DE TEXTO
-   ═══════════════════════════════════════════════════════════ */
-function normalizeText(text) {
-  if (!text) return '';
-  return text
-    .replace(/Â°/g,'°').replace(/Ã³/g,'ó').replace(/Ã©/g,'é')
-    .replace(/Ã­/g,'í').replace(/Ã¡/g,'á').replace(/Ã±/g,'ñ')
-    .replace(/Ãš/g,'Ú').replace(/Ã'/g,'Ñ').replace(/â€"/g,'-')
-    .normalize('NFC')
-    .replace(/[ \t]+/g,' ')
-    .replace(/\r\n/g,'\n').replace(/\r/g,'\n')
-    .replace(/\n{3,}/g,'\n\n')
-    .trim();
-}
-
-/* ═══════════════════════════════════════════════════════════
-   3. EXTRACCIÓN TEXTO DE PDF
-   ═══════════════════════════════════════════════════════════ */
-async function extractTextFromPdf(buffer, onProgress, flags) {
-  onProgress('Cargando PDF…', 5);
-  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
-  const totalPages = pdf.numPages;
-  let fullText = '';
-  for (let p = 1; p <= totalPages; p++) {
-    if (flags && flags.cancelled) throw new Error('cancelled');
-    const page = await pdf.getPage(p);
-    const content = await page.getTextContent();
-    fullText += content.items.map(i => i.str).join(' ') + '\n';
-    onProgress(`Extrayendo página ${p}/${totalPages}…`, 5 + Math.round((p/totalPages)*40));
-  }
-  fullText = normalizeText(fullText);
-  if (fullText.replace(/\s/g,'').length < 80) {
-    onProgress('Texto escaso, iniciando OCR de imagen…', 50);
-    fullText = await ocrPdfPages(pdf, onProgress, flags);
-  }
-  return fullText;
-}
-
-async function ocrPdfPages(pdf, onProgress, flags) {
-  let combined = '';
-  const totalPages = pdf.numPages;
-  for (let p = 1; p <= totalPages; p++) {
-    if (flags && flags.cancelled) throw new Error('cancelled');
-    const page = await pdf.getPage(p);
-    const viewport = page.getViewport({ scale: 1.8 });
-    const canvas = document.createElement('canvas');
-    canvas.width = viewport.width; canvas.height = viewport.height;
-    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-    onProgress(`OCR página ${p}/${totalPages}…`, 50 + Math.round((p/totalPages)*35));
-    const { data } = await Tesseract.recognize(canvas, 'spa', { logger: () => {} });
-    combined += data.text + '\n';
-  }
-  return normalizeText(combined);
-}
-
-/* ═══════════════════════════════════════════════════════════
-   4. PARSER SUNAT GRE
-   ═══════════════════════════════════════════════════════════ */
-function extractFromSunatText(rawText) {
-  const text = normalizeText(rawText);
-
-  // RUC remitente
-  let remitente = { ruc: '', nombre: '' };
-  const rucM = text.match(/RUC\s*N[°o]\s*(\d{11})/i);
-  if (rucM) remitente.ruc = rucM[1];
-  const nameM = text.match(/(?:GUÍA DE REMISIÓN ELECTRÓNICA\s+REMITENTE\s+N°[^\n]+\n)([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+?)(?:\n|$)/i);
-  if (nameM) remitente.nombre = nameM[1].trim();
-
-  // N° Guía
-  let guia = { serie: '', numero: '' };
-  const guiaM = text.match(/N[°o]\s+([A-Z0-9]+)\s*[-–]\s*(\d+)/i);
-  if (guiaM) { guia.serie = guiaM[1].trim(); guia.numero = guiaM[2].trim(); }
-
-  // Fecha
-  let fecha = '';
-  const fechaM = text.match(/Fecha de inicio de Traslado\s*:?\s*(\d{2}\/\d{2}\/\d{4})/i)
-              || text.match(/(\d{2}\/\d{2}\/\d{4})/);
-  if (fechaM) fecha = fechaM[1];
-
-  // Destinatario
-  let destinatario = { ruc: '', nombre: '' };
-  const destM = text.match(/Datos del Destinatario\s*:(.+?)\s*[-–]\s*REGISTRO\s*[ÚU]NICO.*?N[°o]\s*(\d{11})/is);
-  if (destM) { destinatario.nombre = destM[1].trim(); destinatario.ruc = destM[2].trim(); }
-
-  // Motivo
-  let motivo = '';
-  const motivoM = text.match(/Descripci[oó]n de Motivo\s*:([^\n]+)/i);
-  if (motivoM) motivo = motivoM[1].trim();
-
-  // Observaciones
-  let observaciones = '';
-  const obsM = text.match(/Observaciones\s*:\s*(.+?)(?:\n|$)/i);
-  if (obsM) observaciones = obsM[1].trim();
-
-  // Placa / Conductor
-  let placa = '', conductor = '';
-  const placaM = text.match(/N[úu]mero de placa[:\s]+([A-Z0-9]+)/i);
-  if (placaM) placa = placaM[1].trim();
-  const condM = text.match(/Principal[:\s]+([A-ZÁÉÍÓÚÑ][^-\n]+?)\s*[-–]\s*DOCUMENTO/i);
-  if (condM) conductor = condM[1].trim();
-
-  const items = extractSunatItems(text);
-
-  return { source:'SUNAT_QR', guia, fecha, remitente, destinatario,
-           motivo, observaciones, conductor, placa, items,
-           rawText: rawText.substring(0,3000) };
-}
-
-function extractSunatItems(text) {
-  const isT003 = /JERSEY\s+C\/LYCRA|HEATHERED\s+CORE/i.test(text)
-              || /-(\d{1,2})\s+LT\.\s+1\s+UNIDAD/i.test(text);
-  return isT003 ? parseT003StyleItems(text) : parseEG07StyleItems(text);
-}
-
-function parseEG07StyleItems(text) {
-  const items = [];
-  const serviceRx = /SERVICIO\s+DE\s+CONFEC[CI]ON\b[^\n]*/gi;
-  let m;
-  while ((m = serviceRx.exec(text)) !== null) {
-    const blockStart = m.index;
-    const after = text.slice(blockStart);
-    const uniRx = /UNIDAD\s*\(?NIU\)?\s+([\d.]+)/i;
-    const uniM = after.match(uniRx);
-    const nextService = text.indexOf('SERVICIO DE CONFEC', blockStart + 5);
-    let blockEnd;
-    if (uniM) blockEnd = blockStart + after.indexOf(uniM[0]) + uniM[0].length;
-    else blockEnd = nextService > 0 ? nextService : blockStart + 400;
-    const block = text.slice(blockStart, blockEnd + 60);
-    const cantidad_total = uniM ? parseFloat(uniM[1]) : null;
-    const opM = block.match(/OP[:\s]*(\d{4,6})/i);
-    const op = opM ? opM[1] : null;
-    const colorM = block.match(/COLOR[:\s]+([A-Z][A-Z\s]+?)(?:\s+(?:PRIMERAS|SEGUNDAS|MANCHAS|2DA|TALLAS|XXS|XS|S\b|M\b|L\b|XL|UNIDAD)|$)/im);
-    const color = colorM ? colorM[1].trim() : null;
-    const catM = block.match(/\b(PRIMERAS|SEGUNDAS|MANCHAS|2DA\s+POR\s+TONO|TALLAS)\b/i);
-    const categoria = catM ? catM[1].replace(/\s+/g,' ').trim().toUpperCase() : null;
-    const tipoM = block.match(/^(SERVICIO\s+DE\s+CONFECCION\s*[-–]?\s*[^O\n]*?)(?:\s+OP|\s*$)/im);
-    const tipo = tipoM ? tipoM[1].trim() : 'SERVICIO DE CONFECCION';
-    const sizes = parseSizePairs(block);
-    items.push({ tipo, op, color, categoria, cantidad_total, sizes });
-  }
-  if (items.length === 0) {
-    const gi = extractGenericItem(text);
-    if (gi) items.push(gi);
-  }
-  return items;
-}
-
-function parseT003StyleItems(text) {
-  const rowRx = /([A-Z][\w\s,\/()-]+?)-(\d{1,2})\s+LT\.?\s+\d+\s+UNIDAD\s+([\d.]+)/gi;
-  const rows = [];
-  let m;
-  while ((m = rowRx.exec(text)) !== null) {
-    rows.push({ base: m[1].trim(), size: m[2], qty: parseFloat(m[3]) });
-  }
-  if (rows.length === 0) return [];
-  const groups = {};
-  for (const r of rows) {
-    const key = r.base.replace(/\s+/g,' ').trim();
-    if (!groups[key]) groups[key] = { tipo: key, sizes: {}, cantidad_total: 0 };
-    groups[key].sizes[r.size] = r.qty;
-    groups[key].cantidad_total += r.qty;
-  }
-  return Object.values(groups).map(g => ({
-    tipo: g.tipo, op: null, color: null, categoria: null,
-    cantidad_total: g.cantidad_total, sizes: g.sizes,
-  }));
-}
-
-function parseSizePairs(text) {
-  const sizes = {};
-  const pattern = new RegExp(`\\b(${SIZES_REGEX_SRC})\\s*=\\s*(\\d+)`, 'gi');
-  let m;
-  while ((m = pattern.exec(text)) !== null) sizes[m[1].toUpperCase()] = parseInt(m[2]);
-  return sizes;
-}
-
-function extractGenericItem(text) {
-  const sizes = parseSizePairs(text);
-  if (Object.keys(sizes).length === 0) return null;
-  return {
-    tipo: 'DESCRIPCIÓN NO DETECTADA', op: null, color: null, categoria: null,
-    cantidad_total: Object.values(sizes).reduce((a,b)=>a+b,0), sizes,
-  };
-}
-
-/* ═══════════════════════════════════════════════════════════
-   5. PARSER GUÍAS MANUALES (OCR)
-   ═══════════════════════════════════════════════════════════ */
-function extractFromManualOcrText(rawText, confidence) {
-  const text = normalizeText(rawText);
-
-  let remitente = { ruc: '' };
-  const rucM = text.match(/RUC\.?\s*(\d{11})/i);
-  if (rucM) remitente.ruc = rucM[1];
-
-  let guia = { serie: '', numero: '' };
-  const guiaM = text.match(/(\d{3})\s*[-–]\s*[Nn][°o]?\s*0*(\d+)/);
-  if (guiaM) { guia.serie = guiaM[1]; guia.numero = guiaM[2].padStart(6,'0'); }
-
-  let fecha = '';
-  const meses = { enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,
-                  julio:7,agosto:8,septiembre:9,octubre:10,noviembre:11,diciembre:12 };
-  const fechaLargaM = text.match(/(\d{1,2})\s+de\s+([a-záéíóúñ]+)\s+del?\s+(\d{2,4})/i);
-  if (fechaLargaM) {
-    const mes = meses[fechaLargaM[2].toLowerCase()];
-    const anio = fechaLargaM[3].length===2 ? '20'+fechaLargaM[3] : fechaLargaM[3];
-    fecha = `${fechaLargaM[1].padStart(2,'0')}/${String(mes).padStart(2,'0')}/${anio}`;
-  } else {
-    const fM = text.match(/(\d{2})[\/\-](\d{2})[\/\-](\d{2,4})/);
-    if (fM) fecha = `${fM[1]}/${fM[2]}/${fM[3].length===2?'20'+fM[3]:fM[3]}`;
-  }
-
-  let destinatario = { ruc: '', nombre: '' };
-  const destRucs = [...text.matchAll(/RUC[:\s]*(\d{11})/gi)];
-  if (destRucs.length > 1) destinatario.ruc = destRucs[1][1];
-  const destNombreM = text.match(/(?:Destinatario|Razon social)[:\s]*([A-ZÁÉÍÓÚÑ][^\n]+)/i);
-  if (destNombreM) destinatario.nombre = destNombreM[1].trim();
-
-  const items = parseManualItems(text);
-
-  return { source:'MANUAL_PHOTO', guia, fecha, remitente, destinatario,
-           motivo:'', observaciones:'', conductor:'', placa:'',
-           items, rawText: rawText.substring(0,3000),
-           ocrConfidenceSummary: Math.round(confidence)+'%' };
-}
-
-function parseManualItems(text) {
-  const items = [];
-  const opMatches = [...text.matchAll(/OP[:\s]*(\d{4,6})/gi)];
-  for (const opM of opMatches) {
-    const op = opM[1];
-    const start = opM.index;
-    const block = text.slice(Math.max(0,start-120), Math.min(text.length,start+300));
-    const colorM = block.match(/color[:\s]+([A-Za-záéíóúñ\s]+?)(?:\n|$)/i);
-    const color = colorM ? colorM[1].trim() : null;
-    const tipoM = block.match(/(?:Servicio\s+de\s+confec\w+|SERVICIO\s+DE\s+CONFEC\w+)/i);
-    const tipo = tipoM ? tipoM[0].trim() : 'Servicio de confección';
-    const sizes = {};
-    let cantidad_total = null;
-
-    // Patrón A: "45 tallas M-24 L-21"
-    const tallasA = block.match(/(\d+)\s+tallas?\s+((?:[A-Z]+[-]\d+\s*)+)/i);
-    if (tallasA) {
-      cantidad_total = parseInt(tallasA[1]);
-      for (const p of tallasA[2].matchAll(/([A-Z]+)[-=](\d+)/gi))
-        sizes[p[1].toUpperCase()] = parseInt(p[2]);
-    }
-
-    // Patrón B: "34 tallas S M L XL\n 3 10 15 6"
-    if (Object.keys(sizes).length === 0) {
-      const tallasB = block.match(/(\d+)\s+tallas?\s+((?:(?:XXS|XS|S|M|L|XL|XXL)\s+)+)\n\s*((?:\d+\s+)+)/i);
-      if (tallasB) {
-        cantidad_total = parseInt(tallasB[1]);
-        const sNames = tallasB[2].trim().split(/\s+/);
-        const qtys = tallasB[3].trim().split(/\s+/);
-        sNames.forEach((sz,i) => { if (i<qtys.length) sizes[sz.toUpperCase()]=parseInt(qtys[i]); });
-      }
-    }
-
-    // Fallback KEY=VAL
-    if (Object.keys(sizes).length === 0) Object.assign(sizes, parseSizePairs(block));
-    if (!cantidad_total && Object.keys(sizes).length > 0)
-      cantidad_total = Object.values(sizes).reduce((a,b)=>a+b,0);
-
-    const bolsaM = block.match(/(\d+)\s+bolsa/i);
-    items.push({ tipo, op, color, categoria: null, cantidad_total, sizes,
-                 bolsas: bolsaM ? parseInt(bolsaM[1]) : null });
-  }
-  if (items.length === 0) {
-    const sizes = parseSizePairs(text);
-    if (Object.keys(sizes).length > 0)
-      items.push({ tipo:'DESCRIPCIÓN MANUAL', op:null, color:null, categoria:null,
-                   cantidad_total: Object.values(sizes).reduce((a,b)=>a+b,0), sizes });
-  }
-  return items;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   6. QR SCANNER
-   ═══════════════════════════════════════════════════════════ */
-function initQrScanner() {
-  document.getElementById('qr-scanner-area').classList.remove('hidden');
-  document.getElementById('action-section').classList.add('hidden');
-  if (AppState.html5QrCode) { try { AppState.html5QrCode.stop(); } catch(_){} }
-  AppState.html5QrCode = new Html5Qrcode('qr-reader');
-  AppState.html5QrCode.start(
-    { facingMode: { ideal: 'environment' } },
-    { fps:10, qrbox:{width:240,height:240}, aspectRatio:1.0 },
-    (decodedText) => onQrDecoded(decodedText),
-    () => {}
-  ).catch(err => { showError('No se pudo acceder a la cámara: '+err); stopQrScanner(); });
-}
-
-function stopQrScanner() {
-  if (AppState.html5QrCode) { AppState.html5QrCode.stop().catch(()=>{}); AppState.html5QrCode = null; }
-  document.getElementById('qr-scanner-area').classList.add('hidden');
-  document.getElementById('action-section').classList.remove('hidden');
-}
-
-async function onQrDecoded(decodedText) {
-  if (AppState.html5QrCode) { await AppState.html5QrCode.stop().catch(()=>{}); AppState.html5QrCode = null; }
-  let pdfUrl = decodedText.trim();
-  document.getElementById('last-url-display').classList.remove('hidden');
-  document.getElementById('last-url-text').textContent = pdfUrl;
-  AppState.lastQrUrl = pdfUrl;
-  if (!pdfUrl.startsWith('http')) {
-    pdfUrl = `https://e-factura.sunat.gob.pe/v1/contribuyente/gre/comprobantes/descargaqr?hashqr=${encodeURIComponent(pdfUrl)}`;
-  }
-  await processSunatPdfUrl(pdfUrl);
-}
-
-/* ═══════════════════════════════════════════════════════════
-   7. FLUJO URL → PDF → PARSE
-   ═══════════════════════════════════════════════════════════ */
-async function processSunatPdfUrl(url) {
-  const flags = { cancelled: false };
-  AppState.abortController = new AbortController();
-  showModal('Iniciando…', 2);
-  try {
-    showModal('Descargando PDF de SUNAT…', 20);
-    let buffer;
-    try {
-      const response = await fetch(url, {
-        signal: AppState.abortController.signal,
-        headers: { 'Accept': 'application/pdf' },
-        mode: 'cors',
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      buffer = await response.arrayBuffer();
-    } catch (fetchErr) {
-      hideModal();
-      await showPdfFallback(url);
-      return;
-    }
-    if (flags.cancelled) { hideModal(); return; }
-    await processPdfBuffer(buffer, 'SUNAT_QR', flags);
-  } catch (err) {
-    hideModal();
-    if (err.message !== 'cancelled') showError('Error: '+err.message);
-  }
-}
-
-function showPdfFallback(url) {
-  return new Promise((resolve) => {
-    const modal = document.getElementById('modal-pdf-fallback');
-    document.getElementById('fallback-url-display').textContent = url;
-    document.getElementById('btn-open-pdf-fallback').onclick = () => window.open(url, '_blank');
-    const fileInput = document.getElementById('input-pdf-fallback');
-    fileInput.value = '';
-    fileInput.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      modal.classList.add('hidden');
-      await processPdfBuffer(await file.arrayBuffer(), 'SUNAT_QR', { cancelled: false });
-      resolve();
-    };
-    document.getElementById('btn-cancel-fallback').onclick = () => { modal.classList.add('hidden'); resolve(); };
-    modal.classList.remove('hidden');
-  });
-}
-
-async function processPdfBuffer(buffer, source, flags) {
-  showModal('Extrayendo texto del PDF…', 40);
-  const rawText = await extractTextFromPdf(buffer, (stage, pct) => {
-    showModal(stage, pct);
-    if (flags.cancelled) throw new Error('cancelled');
-  }, flags);
-  if (flags.cancelled) { hideModal(); return; }
-  showModal('Analizando guía…', 85);
-  const result = extractFromSunatText(rawText);
-  result.source = source;
-  hideModal();
-  showResults(result);
-}
-
-/* ═══════════════════════════════════════════════════════════
-   8. FOTO / OCR
-   ═══════════════════════════════════════════════════════════ */
-function initPhotoCapture() {
-  document.getElementById('action-section').classList.add('hidden');
-  document.getElementById('photo-area').classList.remove('hidden');
-  AppState.photoRotation = 0;
-  const input = document.getElementById('input-photo');
-  input.value = '';
-  input.click();
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('input-photo').addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const img = new Image();
-      img.onload = () => renderPhotoToCanvas(img, AppState.photoRotation);
-      img.src = ev.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-});
-
-function renderPhotoToCanvas(img, rotation) {
-  const canvas = document.getElementById('photo-canvas');
-  const ctx = canvas.getContext('2d');
-  const swap = rotation % 180 !== 0;
-  canvas.width  = swap ? img.height : img.width;
-  canvas.height = swap ? img.width  : img.height;
-  ctx.save();
-  ctx.translate(canvas.width/2, canvas.height/2);
-  ctx.rotate((rotation*Math.PI)/180);
-  ctx.drawImage(img, -img.width/2, -img.height/2);
-  ctx.restore();
-  // Guardar referencia de imagen original para rotar correctamente
-  canvas._currentImg = img;
-}
-
-function rotatePhoto() {
-  AppState.photoRotation = (AppState.photoRotation + 90) % 360;
-  const canvas = document.getElementById('photo-canvas');
-  if (canvas._currentImg) {
-    renderPhotoToCanvas(canvas._currentImg, AppState.photoRotation);
-  } else {
-    // Rotar lo que hay en canvas
-    const ctx = canvas.getContext('2d');
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const tmp = document.createElement('canvas');
-    tmp.width = canvas.height; tmp.height = canvas.width;
-    const tc = tmp.getContext('2d');
-    tc.translate(tmp.width/2, tmp.height/2);
-    tc.rotate(Math.PI/2);
-    tc.putImageData(imageData, -canvas.width/2, -canvas.height/2);
-    canvas.width = tmp.width; canvas.height = tmp.height;
-    ctx.drawImage(tmp, 0, 0);
-  }
-}
-
-function enhancePhoto() {
-  const canvas = document.getElementById('photo-canvas');
-  const ctx = canvas.getContext('2d');
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imageData.data;
-  for (let i = 0; i < data.length; i += 4) {
-    const gray = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
-    let c = ((gray - 128) * 1.6) + 128;
-    c = Math.max(0, Math.min(255, c));
-    data[i] = data[i+1] = data[i+2] = c;
-  }
-  ctx.putImageData(imageData, 0, 0);
-}
-
-async function doOcr() {
-  AppState.ocrCancelled = false;
-  const canvas = document.getElementById('photo-canvas');
-  showModal('Iniciando OCR…', 5);
-  try {
-    const worker = await Tesseract.createWorker('spa', 1, {
-      logger: (m) => {
-        if (AppState.ocrCancelled) return;
-        if (m.status === 'recognizing text') {
-          showModal(`OCR: ${Math.round(m.progress*100)}%…`, Math.round(m.progress*85)+10);
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Escáner de Guías SUNAT (Local/Gratis)</title>
+    <!-- Tailwind CSS para los estilos -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tesseract.js para el OCR gratuito en el cliente -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        /* Estilos adicionales para la cámara */
+        #video-container {
+            position: relative;
+            width: 100%;
+            height: 60vh;
+            background-color: #000;
+            overflow: hidden;
+            border-radius: 0.75rem;
         }
-      },
-    });
-    if (AppState.ocrCancelled) { await worker.terminate(); hideModal(); return; }
-    showModal('Reconociendo texto…', 50);
-    const { data } = await worker.recognize(canvas);
-    await worker.terminate();
-    if (AppState.ocrCancelled) { hideModal(); return; }
-    showModal('Analizando guía manual…', 90);
-    const result = extractFromManualOcrText(data.text, data.confidence);
-    hideModal();
-    showResults(result);
-  } catch (err) {
-    hideModal();
-    if (!AppState.ocrCancelled) showError('Error OCR: '+err.message);
-  }
-}
+        #camera-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Asegura que llene el contenedor sin deformarse */
+        }
+        .scanner-guide {
+            position: absolute;
+            top: 10%;
+            left: 5%;
+            width: 90%;
+            height: 80%;
+            border: 2px dashed rgba(255, 255, 255, 0.6);
+            border-radius: 8px;
+            pointer-events: none;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans antialiased min-h-screen flex flex-col">
 
-/* ═══════════════════════════════════════════════════════════
-   9. MODAL
-   ═══════════════════════════════════════════════════════════ */
-function showModal(stage, pct) {
-  document.getElementById('modal-stage').textContent = stage;
-  document.getElementById('modal-progress-fill').style.width = pct+'%';
-  document.getElementById('modal-progress-label').textContent = pct+'%';
-  document.getElementById('modal-processing').classList.remove('hidden');
-}
-function hideModal() { document.getElementById('modal-processing').classList.add('hidden'); }
+    <div class="max-w-2xl mx-auto w-full p-4 flex-1 flex flex-col">
+        
+        <!-- Cabecera -->
+        <header class="text-center mb-6 pt-4">
+            <h1 class="text-2xl font-bold text-blue-800">Escáner Guías SUNAT</h1>
+            <p class="text-sm text-gray-500">100% Local • Gratuito • Cámara Trasera</p>
+        </header>
 
-/* ═══════════════════════════════════════════════════════════
-   10. RENDERIZADO RESULTADOS
-   ═══════════════════════════════════════════════════════════ */
-function showResults(result) {
-  AppState.currentResult = result;
-  const panel = document.getElementById('results-panel');
-  panel.classList.remove('hidden');
-  panel.scrollIntoView({ behavior:'smooth', block:'start' });
+        <!-- VISTA 1: CÁMARA -->
+        <div id="view-camera" class="flex flex-col flex-1">
+            <div id="video-container" class="shadow-lg mb-4">
+                <!-- playsinline es crucial para que funcione en iOS -->
+                <video id="camera-feed" autoplay playsinline></video>
+                <!-- Guía visual para alinear el documento -->
+                <div class="scanner-guide"></div>
+            </div>
+            
+            <p class="text-center text-sm text-gray-600 mb-4">
+                Alinea la Guía de Remisión dentro del recuadro, asegúrate de tener buena iluminación y presiona capturar.
+            </p>
 
-  document.getElementById('result-source-badge').textContent =
-    result.source === 'SUNAT_QR' ? '● SUNAT QR / PDF' : '● Foto Manual OCR';
+            <button id="btn-capture" class="mt-auto w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg flex justify-center items-center gap-2 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Capturar y Extraer Texto
+            </button>
+            <div id="camera-error" class="hidden mt-4 bg-red-100 text-red-700 p-3 rounded-lg text-sm text-center">
+                No se pudo acceder a la cámara. Verifica los permisos de tu navegador.
+            </div>
+        </div>
 
-  const metaRows = [
-    ['Guía',         `${result.guia.serie||'—'} - ${result.guia.numero||'—'}`],
-    ['Fecha',        result.fecha||'—'],
-    ['Remitente RUC',result.remitente.ruc||'—'],
-    ['Remitente',    result.remitente.nombre||'—'],
-    ['Destinatario', result.destinatario.nombre||'—'],
-    ['Dest. RUC',    result.destinatario.ruc||'—'],
-    ['Motivo',       result.motivo||'—'],
-    ['Observaciones',result.observaciones||'—'],
-    ['Conductor',    result.conductor||'—'],
-    ['Placa',        result.placa||'—'],
-  ];
-  if (result.ocrConfidenceSummary) metaRows.push(['Confianza OCR', result.ocrConfidenceSummary]);
+        <!-- VISTA 2: PROCESANDO (OCR) -->
+        <div id="view-processing" class="hidden flex-col items-center justify-center flex-1 py-12">
+            <div class="relative w-20 h-20 mb-6">
+                <svg class="animate-spin w-full h-full text-blue-200" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="#2563EB"></path>
+                </svg>
+                <div class="absolute top-0 left-0 w-full h-full flex items-center justify-center font-bold text-blue-600 text-xs" id="progress-percent">0%</div>
+            </div>
+            <h2 class="text-xl font-semibold text-gray-800 mb-2">Procesando Documento</h2>
+            <p id="progress-status" class="text-gray-500 text-sm text-center px-4">Iniciando motor OCR...</p>
+            <p class="text-xs text-gray-400 mt-6 text-center max-w-xs">
+                La primera vez puede tardar unos segundos mientras se descarga el modelo de lenguaje en español.
+            </p>
+        </div>
 
-  document.getElementById('table-meta').innerHTML = metaRows.map(([k,v]) => `
-    <tr>
-      <td class="meta-key">${k}</td>
-      <td class="meta-val"><input class="meta-edit" data-key="${k}" value="${escHtml(v)}"></td>
-    </tr>`).join('');
+        <!-- VISTA 3: RESULTADOS -->
+        <div id="view-result" class="hidden flex-col flex-1">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex-1 flex flex-col">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-semibold text-green-700 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                        </svg>
+                        Extracción Completada
+                    </h3>
+                    <button id="btn-copy" class="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 py-1 px-3 rounded flex items-center gap-1 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Copiar
+                    </button>
+                </div>
+                
+                <textarea id="extracted-text" class="w-full flex-1 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" readonly></textarea>
+            </div>
 
-  renderItemsTable(result.items);
-  document.getElementById('raw-text-output').textContent = result.rawText||'';
+            <button id="btn-retake" class="mt-4 w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 rounded-xl shadow-md flex justify-center items-center gap-2 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Escanear Otro Documento
+            </button>
+        </div>
 
-  document.getElementById('table-meta').querySelectorAll('.meta-edit')
-    .forEach(inp => inp.addEventListener('input', syncMetaEdits));
-}
+        <!-- Canvas oculto para procesar la imagen -->
+        <canvas id="capture-canvas" class="hidden"></canvas>
+    </div>
 
-function syncMetaEdits() {
-  const r = AppState.currentResult; if (!r) return;
-  const map = {};
-  document.getElementById('table-meta').querySelectorAll('.meta-edit')
-    .forEach(inp => { map[inp.dataset.key] = inp.value; });
-  r.guia.serie  = (map['Guía']||'').split('-')[0].trim();
-  r.guia.numero = (map['Guía']||'').split('-')[1]?.trim()||'';
-  r.fecha = map['Fecha']||'';
-  r.remitente.ruc = map['Remitente RUC']||'';
-  r.remitente.nombre = map['Remitente']||'';
-  r.destinatario.nombre = map['Destinatario']||'';
-  r.destinatario.ruc = map['Dest. RUC']||'';
-  r.motivo = map['Motivo']||'';
-  r.observaciones = map['Observaciones']||'';
-}
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Referencias al DOM
+            const video = document.getElementById('camera-feed');
+            const canvas = document.getElementById('capture-canvas');
+            const btnCapture = document.getElementById('btn-capture');
+            const btnRetake = document.getElementById('btn-retake');
+            const btnCopy = document.getElementById('btn-copy');
+            const textArea = document.getElementById('extracted-text');
+            const cameraError = document.getElementById('camera-error');
+            
+            // Vistas
+            const viewCamera = document.getElementById('view-camera');
+            const viewProcessing = document.getElementById('view-processing');
+            const viewResult = document.getElementById('view-result');
+            
+            // Elementos de progreso
+            const progressStatus = document.getElementById('progress-status');
+            const progressPercent = document.getElementById('progress-percent');
 
-function renderItemsTable(items) {
-  const table = document.getElementById('table-items');
-  if (!items || items.length === 0) {
-    table.innerHTML = '<tr><td colspan="7" style="color:var(--text-dim);text-align:center;padding:16px">No se detectaron items</td></tr>';
-    return;
-  }
-  const header = `<tr><th>#</th><th>Tipo / Descripción</th><th>OP</th><th>Color</th><th>Categoría</th><th>Tallas</th><th>Total</th></tr>`;
-  const rows = items.map((item, i) => {
-    const catCls = item.categoria ? 'cat-'+item.categoria.split(' ')[0] : 'cat-other';
-    const sizeTags = Object.entries(item.sizes||{})
-      .map(([sz,qty]) => `<span class="size-tag">${sz}: ${qty}</span>`).join('');
-    return `<tr>
-      <td>${i+1}</td>
-      <td class="item-desc">${escHtml(item.tipo||'—')}</td>
-      <td>${escHtml(item.op||'—')}</td>
-      <td>${escHtml(item.color||'—')}</td>
-      <td><span class="cat-badge ${catCls}">${escHtml(item.categoria||'—')}</span></td>
-      <td class="sizes-cell">${sizeTags||'—'}</td>
-      <td class="qty-cell">${item.cantidad_total??'—'}</td>
-    </tr>`;
-  }).join('');
-  table.innerHTML = header + rows;
-}
+            let stream = null;
 
-/* ═══════════════════════════════════════════════════════════
-   11. HISTORIAL
-   ═══════════════════════════════════════════════════════════ */
-function loadHistory() { try { return JSON.parse(localStorage.getItem(LS_KEY)||'[]'); } catch { return []; } }
-function saveHistory(h) { try { localStorage.setItem(LS_KEY, JSON.stringify(h.slice(0,MAX_HISTORY))); } catch(e) { console.warn(e); } }
+            // 1. INICIAR LA CÁMARA TRASERA
+            async function startCamera() {
+                try {
+                    cameraError.classList.add('hidden');
+                    // Solicitamos específicamente la cámara trasera (environment)
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: { 
+                            facingMode: "environment",
+                            width: { ideal: 1920 }, // Buscamos alta resolución para mejor OCR
+                            height: { ideal: 1080 }
+                        },
+                        audio: false
+                    });
+                    video.srcObject = stream;
+                } catch (err) {
+                    console.error("Error al acceder a la cámara:", err);
+                    cameraError.classList.remove('hidden');
+                    // Fallback: si falla (por ejemplo en PC sin cámara trasera), intentamos cualquier cámara
+                    try {
+                        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                        video.srcObject = stream;
+                        cameraError.classList.add('hidden');
+                    } catch (fallbackErr) {
+                        cameraError.textContent = "No se pudo acceder a ninguna cámara. Verifica los permisos.";
+                    }
+                }
+            }
 
-function addToHistory(result) {
-  const h = loadHistory();
-  h.unshift({ ...result, savedAt: new Date().toISOString(), id: Date.now() });
-  saveHistory(h);
-  renderHistory();
-}
+            // 2. DETENER LA CÁMARA
+            function stopCamera() {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+            }
 
-function renderHistory() {
-  const history = loadHistory();
-  document.getElementById('history-count').textContent = history.length;
-  const list = document.getElementById('history-list');
-  if (history.length === 0) {
-    list.innerHTML = `<div class="empty-state"><span class="empty-icon">◫</span><p>No hay guías guardadas aún.<br>Escanea un QR o sube una foto para comenzar.</p></div>`;
-    return;
-  }
-  list.innerHTML = history.map(entry => {
-    const icon = entry.source==='SUNAT_QR' ? '⬡' : '◫';
-    const guiaStr = `${entry.guia?.serie||'?'}-${entry.guia?.numero||'?'}`;
-    const destStr = entry.destinatario?.nombre||entry.destinatario?.ruc||'Desconocido';
-    const dateStr = entry.fecha||(entry.savedAt?entry.savedAt.substring(0,10):'');
-    return `<div class="history-item" data-id="${entry.id}">
-      <span class="history-item-icon">${icon}</span>
-      <div class="history-item-main">
-        <div class="history-item-guia">${escHtml(guiaStr)}</div>
-        <div class="history-item-dest">${escHtml(destStr)}</div>
-      </div>
-      <span class="history-item-date">${escHtml(dateStr)}</span>
-      <button class="history-item-del" data-id="${entry.id}" title="Eliminar">✕</button>
-    </div>`;
-  }).join('');
+            // 3. CAMBIAR ENTRE VISTAS
+            function showView(viewName) {
+                viewCamera.classList.add('hidden');
+                viewProcessing.classList.add('hidden');
+                viewResult.classList.add('hidden');
 
-  list.querySelectorAll('.history-item').forEach(el => {
-    el.addEventListener('click', (e) => {
-      if (e.target.classList.contains('history-item-del')) return;
-      const entry = loadHistory().find(h => h.id === parseInt(el.dataset.id));
-      if (entry) showResults(entry);
-    });
-  });
-  list.querySelectorAll('.history-item-del').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      saveHistory(loadHistory().filter(h => h.id !== parseInt(btn.dataset.id)));
-      renderHistory();
-    });
-  });
-}
+                if (viewName === 'camera') {
+                    viewCamera.classList.remove('hidden');
+                    viewCamera.classList.add('flex');
+                    startCamera();
+                } else if (viewName === 'processing') {
+                    viewProcessing.classList.remove('hidden');
+                    viewProcessing.classList.add('flex');
+                    stopCamera();
+                } else if (viewName === 'result') {
+                    viewResult.classList.remove('hidden');
+                    viewResult.classList.add('flex');
+                }
+            }
 
-/* ═══════════════════════════════════════════════════════════
-   12. EXPORTACIÓN CSV
-   ═══════════════════════════════════════════════════════════ */
-function exportCsv() {
-  const history = loadHistory();
-  if (history.length === 0) { alert('No hay datos en el historial.'); return; }
-  const cols = ['source','fecha','serie','numero','remitente_ruc','remitente_nombre',
-    'destinatario_ruc','destinatario_nombre','motivo','observaciones','placa','conductor',
-    'item_idx','tipo','op','color','categoria','cantidad_total','sizes_json',...ALL_SIZES];
-  const rows = [cols.join(',')];
-  for (const entry of history) {
-    const items = entry.items?.length > 0 ? entry.items : [{}];
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i]||{};
-      const sizes = item.sizes||{};
-      rows.push([
-        entry.source||'', entry.fecha||'',
-        entry.guia?.serie||'', entry.guia?.numero||'',
-        entry.remitente?.ruc||'', entry.remitente?.nombre||'',
-        entry.destinatario?.ruc||'', entry.destinatario?.nombre||'',
-        entry.motivo||'', entry.observaciones||'',
-        entry.placa||'', entry.conductor||'',
-        i+1, item.tipo||'', item.op||'', item.color||'',
-        item.categoria||'', item.cantidad_total??'',
-        JSON.stringify(sizes),
-        ...ALL_SIZES.map(s => sizes[s]??''),
-      ].map(v => csvCell(String(v))).join(','));
-    }
-  }
-  const blob = new Blob(['\uFEFF'+rows.join('\r\n')], { type:'text/csv;charset=utf-8;' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `gre_sunat_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
+            // 4. MEJORAR IMAGEN (PRE-PROCESAMIENTO PARA OCR)
+            // Tesseract funciona mucho mejor con imágenes en alto contraste y escala de grises
+            function preprocessImage(ctx, width, height) {
+                const imageData = ctx.getImageData(0, 0, width, height);
+                const data = imageData.data;
+                
+                for (let i = 0; i < data.length; i += 4) {
+                    // Convertir a escala de grises
+                    const avg = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+                    
+                    // Aumentar contraste artificialmente (Binarización suave)
+                    // Si el pixel es oscuro, lo hacemos más negro; si es claro, más blanco.
+                    const contrast = 1.5; 
+                    const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+                    let newValue = factor * (avg - 128) + 128;
+                    
+                    // Limitar entre 0 y 255
+                    newValue = Math.max(0, Math.min(255, newValue));
 
-function csvCell(v) {
-  if (v.includes(',')||v.includes('"')||v.includes('\n')) return '"'+v.replace(/"/g,'""')+'"';
-  return v;
-}
+                    data[i]     = newValue; // Red
+                    data[i + 1] = newValue; // Green
+                    data[i + 2] = newValue; // Blue
+                    // data[i+3] es el Alpha, lo dejamos igual
+                }
+                
+                ctx.putImageData(imageData, 0, 0);
+            }
 
-/* ═══════════════════════════════════════════════════════════
-   13. SELF-TEST
-   ═══════════════════════════════════════════════════════════ */
-function selfTest() {
-  console.group('🧪 SELF-TEST GRE SUNAT EXTRACTOR');
-  let passed=0, failed=0;
-  function assert(label, cond, info) {
-    if (cond) { console.log(`  ✅ ${label}`); passed++; }
-    else { console.error(`  ❌ ${label}`, info); failed++; }
-  }
+            // 5. CAPTURAR Y EJECUTAR OCR
+            btnCapture.addEventListener('click', async () => {
+                if (!video.videoWidth) return;
 
-  // TEST A: EG07-00002901
-  const rA = extractFromSunatText(`RUC N°10100735658
-GUÍA DE REMISIÓN ELECTRÓNICA REMITENTE N° EG07 - 00002901
-SAENZ JARA LENIN ELEODORO
-15/01/2026 04:36 PM
-Fecha de inicio de Traslado : 15/01/2026
-Datos del Destinatario :CITI TEX S.A.C. - REGISTRO ÚNICO DE CONTRIBUYENTES N° 20522054331
-Descripción de Motivo :SERVICIO DE CONFECCION
-SERVICIO DE CONFECCION - T SHIRT M/C OP:40559 COLOR: BLACK PRIMERAS XXS=69 XS=57 S=109 M=110 L=114 XL=47
-1 NO 01 UNIDAD (NIU) 506.00
-Observaciones : VAN 2 BOLSAS`);
-  assert('A: RUC remitente',       rA.remitente.ruc==='10100735658',       rA.remitente.ruc);
-  assert('A: Serie EG07',          rA.guia.serie==='EG07',                 rA.guia.serie);
-  assert('A: Número 00002901',     rA.guia.numero==='00002901',            rA.guia.numero);
-  assert('A: Fecha',               rA.fecha==='15/01/2026',                rA.fecha);
-  assert('A: Dest CITI TEX',       rA.destinatario.nombre.includes('CITI TEX'), rA.destinatario.nombre);
-  assert('A: Dest RUC',            rA.destinatario.ruc==='20522054331',    rA.destinatario.ruc);
-  assert('A: 1 item',              rA.items.length>=1,                     rA.items.length);
-  if(rA.items[0]) {
-    assert('A: OP 40559',          rA.items[0].op==='40559',               rA.items[0].op);
-    assert('A: Categoria PRIMERAS',rA.items[0].categoria==='PRIMERAS',     rA.items[0].categoria);
-    assert('A: Cantidad 506',      rA.items[0].cantidad_total===506,       rA.items[0].cantidad_total);
-    assert('A: XS=57',             rA.items[0].sizes['XS']===57,           rA.items[0].sizes);
-    assert('A: M=110',             rA.items[0].sizes['M']===110,           rA.items[0].sizes);
-  }
+                // Configurar el canvas con la resolución del video
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                
+                // Dibujar el frame actual del video en el canvas
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Aplicar pre-procesamiento para ayudar al OCR gratuito
+                preprocessImage(ctx, canvas.width, canvas.height);
 
-  // TEST B: EG07-00002903 (múltiples items)
-  const rB = extractFromSunatText(`RUC N°10100735658
-GUÍA DE REMISIÓN ELECTRÓNICA REMITENTE N° EG07 - 00002903
-Datos del Destinatario :CITI TEX S.A.C. - REGISTRO ÚNICO DE CONTRIBUYENTES N° 20522054331
-SERVICIO DE CONFECCION - T SHIRT M/C OP: 40559 COLOR BLACK MANCHAS XS=1 S=2 M=13 L=5 XL=1
-1 NO 01 UNIDAD (NIU) 22.00
-SERVICIO DE CONFECCION - T SHIRT M/C OP: 40559 COLOR BLACK 2DA POR TONO XS=1 S=3 M=16 L=10 XL=1
-2 NO 01 UNIDAD (NIU) 31.00
-SERVICIO DE CONFECCION - T SHIRT M/C OP: 40559 COLOR BLACK SEGUNDAS XXS=8 XS=4 S=18 M=14 L=10 XL=4
-3 NO 01 UNIDAD (NIU) 58.00`);
-  assert('B: 3 items',             rB.items.length===3,                    rB.items.length);
-  if(rB.items[0]) assert('B: Item1 MANCHAS',    rB.items[0].categoria==='MANCHAS',      rB.items[0].categoria);
-  if(rB.items[1]) assert('B: Item2 2DA',         rB.items[1].categoria?.startsWith('2DA'), rB.items[1].categoria);
-  if(rB.items[2]) assert('B: Item3 SEGUNDAS',    rB.items[2].categoria==='SEGUNDAS',     rB.items[2].categoria);
-  if(rB.items[0]) assert('B: Item1 qty 22',      rB.items[0].cantidad_total===22,        rB.items[0].cantidad_total);
-  if(rB.items[2]) assert('B: Item3 XXS=8',       rB.items[2].sizes['XXS']===8,           rB.items[2].sizes);
+                // Obtener la imagen procesada
+                const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
 
-  // TEST C: T003-00016066 (tallas numéricas)
-  const rC = extractFromSunatText(`RUC N°20522054331
-GUÍA DE REMISIÓN ELECTRÓNICA REMITENTE N° T003 - 00016066
-CITI TEX S.A.C.
-26/08/2025
-Datos del Destinatario :COFACO INDUSTRIES S.A.C. - REGISTRO ÚNICO DE CONTRIBUYENTES N° 20550948029
-1 NO 1000317486 T-SHIRT M/C, JERSEY C/LYCRA HEATHERED CORE ULTRA LIGHT GREY-2 LT. 1 UNIDAD 28.00
-2 NO 1000317487 T-SHIRT M/C, JERSEY C/LYCRA HEATHERED CORE ULTRA LIGHT GREY-4 LT. 1 UNIDAD 54.00
-3 NO 1000317488 T-SHIRT M/C, JERSEY C/LYCRA HEATHERED CORE ULTRA LIGHT GREY-6 LT. 1 UNIDAD 187.00
-4 NO 1000317489 T-SHIRT M/C, JERSEY C/LYCRA HEATHERED CORE ULTRA LIGHT GREY-8 LT. 1 UNIDAD 135.00
-5 NO 1000317490 T-SHIRT M/C, JERSEY C/LYCRA HEATHERED CORE ULTRA LIGHT GREY-10 LT. 1 UNIDAD 182.00
-6 NO 1000317491 T-SHIRT M/C, JERSEY C/LYCRA HEATHERED CORE ULTRA LIGHT GREY-12 LT. 1 UNIDAD 152.00
-7 NO 1000317492 T-SHIRT M/C, JERSEY C/LYCRA HEATHERED CORE ULTRA LIGHT GREY-14 LT. 1 UNIDAD 99.00
-8 NO 1000317494 T-SHIRT M/C, JERSEY C/LYCRA HEATHERED CORE ULTRA LIGHT GREY-18 LT. 1 UNIDAD 44.00`);
-  assert('C: RUC 20522054331',     rC.remitente.ruc==='20522054331',       rC.remitente.ruc);
-  assert('C: Serie T003',          rC.guia.serie==='T003',                 rC.guia.serie);
-  assert('C: Número 00016066',     rC.guia.numero==='00016066',            rC.guia.numero);
-  assert('C: Dest COFACO',         rC.destinatario.nombre.includes('COFACO'), rC.destinatario.nombre);
-  assert('C: Dest RUC',            rC.destinatario.ruc==='20550948029',    rC.destinatario.ruc);
-  if(rC.items[0]) {
-    assert('C: Talla 2=28',        rC.items[0].sizes['2']===28,            rC.items[0].sizes);
-    assert('C: Talla 6=187',       rC.items[0].sizes['6']===187,           rC.items[0].sizes);
-    assert('C: Talla 18=44',       rC.items[0].sizes['18']===44,           rC.items[0].sizes);
-  }
+                // Cambiar a vista de procesamiento
+                showView('processing');
+                progressPercent.textContent = '0%';
+                progressStatus.textContent = 'Inicializando Tesseract...';
 
-  // TEST D: Manual OCR
-  const rD = extractFromManualOcrText(`TEXTILERIA FRANCIS Y C.M. RUC. 20607766453
-GUIA DE REMISION - REMITENTE 001 - N° 003386
-Fecha de Emision 29 de enero del 2026
-Servicio de confeccion
-OP 40272 color Stone will
-45 tallas M-24 L-21
-01 bolsa`, 72);
-  assert('D: RUC 20607766453',     rD.remitente.ruc==='20607766453',       rD.remitente.ruc);
-  assert('D: Serie 001',           rD.guia.serie==='001',                  rD.guia.serie);
-  assert('D: Fecha enero',         rD.fecha.includes('01'),                rD.fecha);
-  assert('D: OP 40272',            rD.items[0]?.op==='40272',              rD.items[0]);
-  assert('D: M=24',                rD.items[0]?.sizes['M']===24,           rD.items[0]?.sizes);
-  assert('D: L=21',                rD.items[0]?.sizes['L']===21,           rD.items[0]?.sizes);
+                try {
+                    // Inicializar Tesseract.js
+                    const worker = await Tesseract.createWorker('spa', 1, {
+                        logger: m => {
+                            console.log(m);
+                            if (m.status === 'recognizing text') {
+                                const p = Math.floor(m.progress * 100);
+                                progressPercent.textContent = `${p}%`;
+                                progressStatus.textContent = 'Leyendo documento...';
+                            } else {
+                                progressStatus.textContent = m.status === 'loading tesseract core' ? 'Cargando motor...' : 
+                                                           m.status === 'loading language traineddata' ? 'Cargando idioma español...' : 
+                                                           'Preparando imagen...';
+                            }
+                        }
+                    });
 
-  console.log(`\n📊 Resultado: ${passed} pasados, ${failed} fallidos`);
-  console.groupEnd();
-  alert(failed===0
-    ? `✅ Todos los ${passed} tests pasaron correctamente.`
-    : `⚠️ ${failed} test(s) fallaron. Revisa la consola (F12) para detalles.`);
-}
-window.selfTest = selfTest; // exponer globalmente
+                    // Extraer texto
+                    const { data: { text } } = await worker.recognize(imageDataUrl);
+                    
+                    // Limpiar el texto de múltiples espacios en blanco o líneas vacías consecutivas
+                    const cleanedText = text.replace(/\n\s*\n/g, '\n\n').trim();
 
-/* ═══════════════════════════════════════════════════════════
-   14. UTILIDADES
-   ═══════════════════════════════════════════════════════════ */
-function escHtml(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;')
-                    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-function showError(msg) { alert('❌ '+msg); }
+                    // Mostrar resultado
+                    textArea.value = cleanedText || "No se detectó texto en la imagen. Intenta con mejor iluminación.";
+                    
+                    await worker.terminate();
+                    showView('result');
 
-/* ═══════════════════════════════════════════════════════════
-   15. EVENT LISTENERS
-   ═══════════════════════════════════════════════════════════ */
-document.addEventListener('DOMContentLoaded', () => {
-  renderHistory();
+                } catch (error) {
+                    console.error("Error en OCR:", error);
+                    textArea.value = "Ocurrió un error al procesar el documento. Asegúrate de tener conexión a internet la primera vez para descargar el modelo.";
+                    showView('result');
+                }
+            });
 
-  document.getElementById('btn-scan-qr').addEventListener('click', initQrScanner);
-  document.getElementById('btn-stop-qr').addEventListener('click', stopQrScanner);
-  document.getElementById('btn-photo-manual').addEventListener('click', initPhotoCapture);
+            // 6. VOLVER A INTENTAR
+            btnRetake.addEventListener('click', () => {
+                showView('camera');
+            });
 
-  document.getElementById('btn-upload-pdf-direct').addEventListener('click', () =>
-    document.getElementById('input-pdf-direct').click());
-  document.getElementById('input-pdf-direct').addEventListener('change', async (e) => {
-    const file = e.target.files[0]; if (!file) return;
-    await processPdfBuffer(await file.arrayBuffer(), 'SUNAT_QR', { cancelled: false });
-  });
+            // 7. COPIAR PORTAPAPELES
+            btnCopy.addEventListener('click', () => {
+                textArea.select();
+                document.execCommand('copy');
+                
+                const originalText = btnCopy.innerHTML;
+                btnCopy.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg> ¡Copiado!`;
+                
+                setTimeout(() => {
+                    btnCopy.innerHTML = originalText;
+                }, 2000);
+            });
 
-  document.getElementById('btn-rotate').addEventListener('click', rotatePhoto);
-  document.getElementById('btn-enhance').addEventListener('click', enhancePhoto);
-  document.getElementById('btn-do-ocr').addEventListener('click', doOcr);
-
-  document.getElementById('btn-cancel').addEventListener('click', () => {
-    AppState.ocrCancelled = true;
-    if (AppState.abortController) AppState.abortController.abort();
-    if (AppState.html5QrCode) { AppState.html5QrCode.stop().catch(()=>{}); AppState.html5QrCode = null; }
-    hideModal();
-  });
-
-  document.getElementById('btn-save-result').addEventListener('click', () => {
-    if (!AppState.currentResult) return;
-    syncMetaEdits();
-    addToHistory(AppState.currentResult);
-    document.getElementById('results-panel').classList.add('hidden');
-    document.getElementById('action-section').classList.remove('hidden');
-    document.getElementById('photo-area').classList.add('hidden');
-    AppState.currentResult = null;
-    alert('✅ Guía guardada en el historial.');
-  });
-
-  document.getElementById('btn-discard-result').addEventListener('click', () => {
-    if (confirm('¿Descartar el resultado actual?')) {
-      document.getElementById('results-panel').classList.add('hidden');
-      document.getElementById('action-section').classList.remove('hidden');
-      document.getElementById('photo-area').classList.add('hidden');
-      AppState.currentResult = null;
-    }
-  });
-
-  document.getElementById('btn-export-csv').addEventListener('click', exportCsv);
-  document.getElementById('btn-clear-history').addEventListener('click', () => {
-    if (confirm('¿Borrar todo el historial?')) { localStorage.removeItem(LS_KEY); renderHistory(); }
-  });
-
-  document.getElementById('btn-self-test').addEventListener('click', selfTest);
-  console.log('GRE SUNAT Extractor listo. Escribe selfTest() en consola para probar el parser.');
-});
-</script>
+            // Iniciar aplicación
+            showView('camera');
+        });
+    </script>
 </body>
 </html>
