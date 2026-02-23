@@ -136,12 +136,6 @@
 
         <div style="height:12px"></div>
 
-
-        <div style="margin-top:10px; border-top:1px solid #eee; padding-top:10px;">
-            <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none" />
-            <button id="btnManual" style="background:#005cbf; color:white; width:100%;">📸 Foto Guía Manual</button>
-        </div>
-
         <div class="muted" style="margin-top:10px;">Último URL:</div>
         <pre id="lastUrl"></pre>
     </div>
@@ -164,7 +158,7 @@
         // Configurar PDF.js worker
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         const DEFAULT_APPS_SCRIPT_WEBAPP_URL =
-            "https://script.google.com/macros/s/AKfycbxHrBz8kqm9drrjBJPJiQj1iALqyuEGxz8eDMWYz6QDKxKn0E_mxHfJtZS-VcqG2RZZ/exec";
+            "https://script.google.com/macros/s/AKfycbyApAD5xei2kBmecBtfhAVimJm8fk6a5QhFxRQZFGMuCYkF-Le1nOXmtP5wYAHKE1pN/exec";
         const WEBAPP_STORAGE_KEY = "gre_webapp_url";
         let APPS_SCRIPT_WEBAPP_URL = DEFAULT_APPS_SCRIPT_WEBAPP_URL;
 
@@ -174,9 +168,6 @@
         const btnStart = document.getElementById("btnStart");
         const btnStop = document.getElementById("btnStop");
 
-        const btnManual = document.getElementById("btnManual");
-        const fileInput = document.getElementById("fileInput");
-
         const statusEl = document.getElementById("status");
         const lastUrlEl = document.getElementById("lastUrl");
         const outEl = document.getElementById("out");
@@ -184,6 +175,18 @@
 
         let html5QrCode = null;
         let busy = false;
+
+        const REQUEST_LIMITS = {
+            PDF_DOWNLOAD_MS: 20000,
+            PDF_EXTRACT_FAST_MS: 12000,
+            PDF_EXTRACT_DEEP_MS: 25000,
+            PROCESS_TEXT_MS: 35000,
+            JSONP_FALLBACK_MS: 70000,
+            FAST_MAX_PAGES: 2,
+            DEEP_MAX_PAGES: 6,
+            MAX_TEXT_CHARS: 120000,
+            RAW_PREVIEW_CHARS: 7000
+        };
 
         function toggleBusy(isBusy, msg = "Procesando...") {
             busy = isBusy;
@@ -244,7 +247,31 @@
 
         let currentRequest = null;
 
-        function jsonpCall(params, timeoutMs = 180000) {
+        function isAbortError_(err) {
+            const msg = String((err && err.message) || err || "").toLowerCase();
+            return (err && err.name === "AbortError") || msg.includes("cancelad") || msg.includes("abort");
+        }
+
+        function assignCurrentRequest_(cancelFn) {
+            const wrapped = () => {
+                try { cancelFn(); } catch { }
+            };
+            currentRequest = { cancel: wrapped };
+            return wrapped;
+        }
+
+        function clearCurrentRequest_(expectedCancelFn) {
+            if (!currentRequest) return;
+            if (!expectedCancelFn) {
+                currentRequest = null;
+                return;
+            }
+            if (currentRequest.cancel === expectedCancelFn) {
+                currentRequest = null;
+            }
+        }
+
+        function jsonpCall(params, timeoutMs = REQUEST_LIMITS.JSONP_FALLBACK_MS) {
             return new Promise((resolve, reject) => {
                 if (!APPS_SCRIPT_WEBAPP_URL) {
                     reject(new Error("API no configurada"));
@@ -258,7 +285,10 @@
                 let timer = null;
                 let startTime = Date.now();
 
-                currentRequest = { cb, cancel: () => { cleanup(); reject(new Error("Cancelado por usuario")); } };
+                const cancelRef = assignCurrentRequest_(() => {
+                    cleanup();
+                    reject(new Error("Cancelado por usuario"));
+                });
 
                 window[cb] = (data) => { cleanup(); resolve(data); };
 
@@ -271,7 +301,7 @@
                     if (timer) clearTimeout(timer);
                     try { delete window[cb]; } catch { }
                     if (script.parentNode) script.parentNode.removeChild(script);
-                    currentRequest = null;
+                    clearCurrentRequest_(cancelRef);
                 }
 
                 timer = setTimeout(() => {
@@ -285,6 +315,66 @@
             });
         }
 
+        async function fetchWithTimeout_(url, options = {}, timeoutMs = 30000, stageLabel = "solicitud") {
+            const baseOptions = options || {};
+            const externalSignal = baseOptions.signal || null;
+            const internalController = new AbortController();
+            const mergedOptions = { ...baseOptions, signal: internalController.signal };
+            const timer = setTimeout(() => internalController.abort(), timeoutMs);
+            const relayAbort = () => internalController.abort();
+
+            try {
+                if (externalSignal) {
+                    if (externalSignal.aborted) {
+                        throw new Error("Cancelado por usuario");
+                    }
+                    externalSignal.addEventListener("abort", relayAbort, { once: true });
+                }
+
+                const response = await fetch(url, mergedOptions);
+                return response;
+            } catch (err) {
+                if (isAbortError_(err)) {
+                    if (externalSignal && externalSignal.aborted) {
+                        throw new Error("Cancelado por usuario");
+                    }
+                    throw new Error(`⏱️ Timeout en ${stageLabel} (${Math.round(timeoutMs / 1000)}s)`);
+                }
+                throw err;
+            } finally {
+                clearTimeout(timer);
+                if (externalSignal) {
+                    externalSignal.removeEventListener("abort", relayAbort);
+                }
+            }
+        }
+
+        function sanitizePdfText_(text) {
+            const compact = String(text || "")
+                .replace(/[ \t]+/g, " ")
+                .replace(/\n{3,}/g, "\n\n")
+                .trim();
+            return compact.length > REQUEST_LIMITS.MAX_TEXT_CHARS
+                ? compact.slice(0, REQUEST_LIMITS.MAX_TEXT_CHARS)
+                : compact;
+        }
+
+        function hasCoreGuideSignals_(text) {
+            const s = String(text || "");
+            const hasRuc = /\bRUC\b[^\d]{0,20}\d{11}/i.test(s) || /\b\d{11}\b/.test(s);
+            const hasSerieDoc = /\b[A-Z0-9]{3,4}\s*[-–]\s*\d{4,12}\b/.test(s);
+            const hasGuideWord = /\bGU[IÍ]A\b/i.test(s);
+            return (hasRuc && hasSerieDoc) || (hasGuideWord && hasSerieDoc);
+        }
+
+        function hasExtractedGuideData_(resp) {
+            const data = (resp && resp.data) ? resp.data : {};
+            const serie = String(data.N_SERIE || "").trim();
+            const documento = String(data.N_DOCUMENTO || "").trim();
+            const ruc = String(data.RUC || "").trim();
+            return Boolean((serie && documento) || (ruc.length === 11));
+        }
+
         async function processUrlFlow(sunatUrl) {
             if (busy) return;
             if (!sunatUrl.startsWith(SUNAT_PREFIX)) {
@@ -295,33 +385,82 @@
             toggleBusy(true, "⬇️ Descargando PDF SUNAT...");
             setStatus("Descargando...");
             lastUrlEl.textContent = sunatUrl;
+            const operationController = new AbortController();
+            const cancelRef = assignCurrentRequest_(() => operationController.abort());
 
             try {
-                // OPTIMIZACION: Descargar PDF y extraer texto LOCALMENTE con PDF.js
-                toggleBusy(true, "📄 Extrayendo texto del PDF...");
-                const pdfBlob = await fetch(sunatUrl).then(r => r.blob());
-                const pdfText = await extractTextFromPdf_(pdfBlob);
-                
-                toggleBusy(true, "🔍 Analizando datos...");
-                
-                // Enviar SOLO el texto al backend para parsear y guardar
-                const resp = await postCall({
-                    action: "process_text",
-                    text: pdfText,
-                    url: sunatUrl
-                });
+                let resp = null;
+                let localFlowError = null;
+
+                try {
+                    // Ruta rápida: PDF.js local con límite de páginas y timeout.
+                    toggleBusy(true, "📄 Extrayendo texto del PDF...");
+                    const pdfResp = await fetchWithTimeout_(
+                        sunatUrl,
+                        { method: "GET", signal: operationController.signal },
+                        REQUEST_LIMITS.PDF_DOWNLOAD_MS,
+                        "descarga del PDF"
+                    );
+                    if (!pdfResp.ok) {
+                        throw new Error("No se pudo descargar el PDF (" + pdfResp.status + ")");
+                    }
+                    const pdfBlob = await pdfResp.blob();
+
+                    let pdfText = await extractTextFromPdf_(pdfBlob, {
+                        maxPages: REQUEST_LIMITS.FAST_MAX_PAGES,
+                        timeoutMs: REQUEST_LIMITS.PDF_EXTRACT_FAST_MS,
+                        signal: operationController.signal
+                    });
+
+                    if (!hasCoreGuideSignals_(pdfText)) {
+                        toggleBusy(true, "🔁 Reintentando lectura completa...");
+                        const deepText = await extractTextFromPdf_(pdfBlob, {
+                            maxPages: REQUEST_LIMITS.DEEP_MAX_PAGES,
+                            timeoutMs: REQUEST_LIMITS.PDF_EXTRACT_DEEP_MS,
+                            signal: operationController.signal
+                        });
+                        if (deepText.length > pdfText.length) pdfText = deepText;
+                    }
+
+                    if (hasCoreGuideSignals_(pdfText)) {
+                        toggleBusy(true, "🔍 Analizando datos...");
+                        resp = await postCall({
+                            action: "process_text",
+                            text: sanitizePdfText_(pdfText),
+                            url: sunatUrl
+                        }, REQUEST_LIMITS.PROCESS_TEXT_MS, operationController.signal);
+                    }
+                } catch (fastErr) {
+                    if (isAbortError_(fastErr)) throw fastErr;
+                    localFlowError = fastErr;
+                }
+
+                if (!resp?.ok || !hasExtractedGuideData_(resp)) {
+                    toggleBusy(true, "♻️ Reintentando en servidor...");
+                    resp = await jsonpCall({
+                        action: "process",
+                        url: sunatUrl
+                    }, REQUEST_LIMITS.JSONP_FALLBACK_MS);
+                }
 
                 if (!resp?.ok) {
-                    throw new Error(resp?.error || "Respuesta inválida de API");
+                    const fastMsg = localFlowError ? ` | Detalle ruta rápida: ${localFlowError.message}` : "";
+                    throw new Error((resp?.error || "Respuesta inválida de API") + fastMsg);
                 }
                 toggleBusy(true, "💾 Guardando...");
                 renderResponse(resp);
             } catch (e) {
+                if (isAbortError_(e)) {
+                    setStatus("Cancelado", "err");
+                    outEl.textContent = "Proceso cancelado por usuario.";
+                    return;
+                }
                 setStatus("Error", "err");
                 const msg = (e && e.message) ? e.message : String(e);
                 outEl.innerHTML = `<b>Error:</b><br>${msg}<br><br><button onclick="location.reload()">Reiniciar</button>`;
                 console.error("Error en processUrlFlow:", e);
             } finally {
+                clearCurrentRequest_(cancelRef);
                 toggleBusy(false);
             }
         }
@@ -401,58 +540,15 @@
                 setStatus("Cancelado", "err");
             }
         });
-
-
-        // === MANUAL PHOTO LOGIC ===
-        btnManual.addEventListener("click", () => fileInput.click());
-
-        fileInput.addEventListener("change", async () => {
-            if (fileInput.files.length === 0) return;
-            const file = fileInput.files[0];
-
-            if (busy) return;
-            
-            // OPTIMIZACION: Validar tamaño de archivo antes de procesar
-            const maxSizeMB = 10;
-            if (file.size > maxSizeMB * 1024 * 1024) {
-                setStatus("Imagen muy grande", "err");
-                outEl.textContent = `Error: La imagen supera ${maxSizeMB}MB`;
-                return;
-            }
-            
-            toggleBusy(true, "📦 Comprimiendo imagen...");
-            setStatus("Comprimiendo imagen...");
-
-            try {
-                const base64 = await resizeAndToBase64(file, 600, 0.5); // Máx 600px, calidad 50%
-                toggleBusy(true, "📤 Subiendo y OCR...");
-                setStatus("Subiendo y OCR...");
-
-                const resp = await postCall({
-                    action: "process_image",
-                    image_base64: base64,
-                    mime_type: "image/jpeg"
-                });
-
-                renderResponse(resp);
-
-            } catch (e) {
-                setStatus("Error Foto", "err");
-                outEl.innerText = "Error subiendo/procesando: " + e;
-            } finally {
-                toggleBusy(false);
-                fileInput.value = ""; // clear
-            }
-        });
-
-        async function postCall(payload) {
+        async function postCall(payload, timeoutMs = REQUEST_LIMITS.PROCESS_TEXT_MS, signal = null) {
             if (!APPS_SCRIPT_WEBAPP_URL) {
                 throw new Error("API no configurada");
             }
-            const resp = await fetch(APPS_SCRIPT_WEBAPP_URL, {
+            const resp = await fetchWithTimeout_(APPS_SCRIPT_WEBAPP_URL, {
                 method: "POST",
-                body: JSON.stringify(payload)
-            });
+                body: JSON.stringify(payload),
+                signal
+            }, timeoutMs, "procesamiento");
             if (!resp.ok) {
                 throw new Error("HTTP " + resp.status + " al llamar API");
             }
@@ -460,56 +556,87 @@
             return json;
         }
 
-        // OPTIMIZACION: Extraer texto de PDF usando PDF.js (3-5s en lugar de 20-30s)
-        async function extractTextFromPdf_(blob) {
-            try {
-                const arrayBuffer = await blob.arrayBuffer();
-                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                let fullText = "";
-                
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    const page = await pdf.getPage(i);
-                    const textContent = await page.getTextContent();
-                    const pageText = textContent.items.map(item => item.str).join(" ");
-                    fullText += pageText + "\n";
+        function pdfItemsToLines_(items) {
+            const lines = [];
+            let currentLine = [];
+            let previousY = null;
+
+            for (const item of (items || [])) {
+                const text = String((item && item.str) || "").trim();
+                if (!text) continue;
+                const y = item && item.transform ? Number(item.transform[5]) : null;
+                if (
+                    Number.isFinite(y) &&
+                    Number.isFinite(previousY) &&
+                    Math.abs(y - previousY) > 2.4 &&
+                    currentLine.length
+                ) {
+                    lines.push(currentLine.join(" ").replace(/\s+/g, " ").trim());
+                    currentLine = [];
                 }
-                
-                return fullText;
+                currentLine.push(text);
+                if (Number.isFinite(y)) previousY = y;
+            }
+
+            if (currentLine.length) {
+                lines.push(currentLine.join(" ").replace(/\s+/g, " ").trim());
+            }
+
+            return lines.join("\n");
+        }
+
+        // OPTIMIZACION: Extraer texto de PDF por páginas con límite y timeout
+        async function extractTextFromPdf_(blob, options = {}) {
+            const maxPages = Number(options.maxPages || REQUEST_LIMITS.FAST_MAX_PAGES);
+            const timeoutMs = Number(options.timeoutMs || REQUEST_LIMITS.PDF_EXTRACT_FAST_MS);
+            const signal = options.signal || null;
+            const startedAt = Date.now();
+            let onAbort = null;
+
+            try {
+                if (signal && signal.aborted) throw new Error("Cancelado por usuario");
+                const arrayBuffer = await blob.arrayBuffer();
+                const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+                if (signal) {
+                    onAbort = () => { try { loadingTask.destroy(); } catch { } };
+                    signal.addEventListener("abort", onAbort, { once: true });
+                }
+
+                const pdf = await loadingTask.promise;
+                let fullText = "";
+
+                const totalPages = Math.min(pdf.numPages, Math.max(1, maxPages));
+                for (let i = 1; i <= totalPages; i++) {
+                    if (signal && signal.aborted) throw new Error("Cancelado por usuario");
+                    if ((Date.now() - startedAt) > timeoutMs) {
+                        throw new Error(`Timeout extrayendo texto del PDF (${Math.round(timeoutMs / 1000)}s)`);
+                    }
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent({ normalizeWhitespace: true });
+                    const pageText = pdfItemsToLines_(textContent.items);
+                    fullText += pageText + "\n";
+
+                    // Corte temprano si ya hay señales suficientes.
+                    if (i >= REQUEST_LIMITS.FAST_MAX_PAGES && hasCoreGuideSignals_(fullText)) {
+                        break;
+                    }
+                }
+
+                return sanitizePdfText_(fullText);
             } catch (e) {
+                if (isAbortError_(e)) throw new Error("Cancelado por usuario");
                 throw new Error("Error extrayendo PDF: " + e.message);
+            } finally {
+                if (signal && onAbort) {
+                    signal.removeEventListener("abort", onAbort);
+                }
             }
         }
 
-        function resizeAndToBase64(file, maxWidth = 600, quality = 0.5) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = (event) => {
-                    const img = new Image();
-                    img.src = event.target.result;
-                    img.onload = () => {
-                        const canvas = document.createElement("canvas");
-                        let width = img.width;
-                        let height = img.height;
-
-                        if (width > maxWidth) {
-                            height = Math.round((height * maxWidth) / width);
-                            width = maxWidth;
-                        }
-
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext("2d");
-                        ctx.drawImage(img, 0, 0, width, height);
-
-                        const dataUrl = canvas.toDataURL("image/jpeg", quality);
-                        const base64 = dataUrl.split(",")[1];
-                        resolve(base64);
-                    };
-                    img.onerror = (e) => reject(e);
-                };
-                reader.onerror = (e) => reject(e);
-            });
+        function getRawPreviewText_(resp) {
+            const raw = String((resp && (resp.fullText || resp.text)) || "Sin texto");
+            if (raw.length <= REQUEST_LIMITS.RAW_PREVIEW_CHARS) return raw;
+            return raw.slice(0, REQUEST_LIMITS.RAW_PREVIEW_CHARS) + "\n\n[Texto recortado para vista rápida]";
         }
 
         function renderResponse(resp) {
@@ -575,13 +702,17 @@
                     ${itemBlocks}
                     <tr style="background:#f9f9f9;">
                         <th style="text-align:left; border:1px solid #ddd; padding:4px;">ARCHIVO</th>
-                        <td style="border:1px solid #ddd; padding:4px;"><a href="${resp.fileUrl || "#"}" target="_blank">Ver Archivo</a></td>
+                        <td style="border:1px solid #ddd; padding:4px;">
+                            ${(resp.fileUrl || resp.downloadUrl)
+                    ? `<a href="${resp.fileUrl || resp.downloadUrl}" target="_blank">Ver Archivo</a>`
+                    : "No disponible"}
+                        </td>
                     </tr>
                 </table>
 
                 <details style="margin-top:10px; border:1px solid #eee; padding:8px; border-radius:6px;">
                     <summary style="cursor:pointer; font-weight:bold; color:#555;">Ver Texto Completo (Raw)</summary>
-                    <pre style="white-space:pre-wrap; font-size:11px; color:#333; margin-top:5px;">${resp.fullText || resp.text || "Sin texto"}</pre>
+                    <pre style="white-space:pre-wrap; font-size:11px; color:#333; margin-top:5px;">${getRawPreviewText_(resp)}</pre>
                 </details>
             `;
         }
