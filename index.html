@@ -177,7 +177,8 @@
         let busy = false;
 
         const REQUEST_LIMITS = {
-            PDF_DOWNLOAD_MS: 9000,
+            PDF_DOWNLOAD_MS: 12000,
+            PDF_DOWNLOAD_RETRY_MS: 22000,
             PDF_EXTRACT_FAST_MS: 3500,
             PDF_EXTRACT_DEEP_MS: 6000,
             PROCESS_TEXT_MS: 9000,
@@ -187,7 +188,7 @@
             MAX_TEXT_CHARS: 120000,
             RAW_PREVIEW_CHARS: 7000
         };
-        const ENABLE_SERVER_FALLBACK = false;
+        const ENABLE_SERVER_FALLBACK = true;
 
         function toggleBusy(isBusy, msg = "Procesando...") {
             busy = isBusy;
@@ -376,6 +377,26 @@
             return Boolean((serie && documento) || (ruc.length === 11));
         }
 
+        async function downloadPdfWithRetry_(sunatUrl, signal) {
+            try {
+                return await fetchWithTimeout_(
+                    sunatUrl,
+                    { method: "GET", signal },
+                    REQUEST_LIMITS.PDF_DOWNLOAD_MS,
+                    "descarga del PDF"
+                );
+            } catch (e) {
+                const msg = String((e && e.message) || e || "");
+                if (!/timeout/i.test(msg)) throw e;
+                return await fetchWithTimeout_(
+                    sunatUrl,
+                    { method: "GET", signal },
+                    REQUEST_LIMITS.PDF_DOWNLOAD_RETRY_MS,
+                    "descarga del PDF (reintento)"
+                );
+            }
+        }
+
         async function processUrlFlow(sunatUrl) {
             if (busy) return;
             if (!sunatUrl.startsWith(SUNAT_PREFIX)) {
@@ -396,12 +417,7 @@
                 try {
                     // Ruta rápida: PDF.js local con límite de páginas y timeout.
                     toggleBusy(true, "📄 Extrayendo texto del PDF...");
-                    const pdfResp = await fetchWithTimeout_(
-                        sunatUrl,
-                        { method: "GET", signal: operationController.signal },
-                        REQUEST_LIMITS.PDF_DOWNLOAD_MS,
-                        "descarga del PDF"
-                    );
+                    const pdfResp = await downloadPdfWithRetry_(sunatUrl, operationController.signal);
                     if (!pdfResp.ok) {
                         throw new Error("No se pudo descargar el PDF (" + pdfResp.status + ")");
                     }
