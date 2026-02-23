@@ -158,7 +158,7 @@
         // Configurar PDF.js worker
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         const DEFAULT_APPS_SCRIPT_WEBAPP_URL =
-            "https://script.google.com/macros/s/AKfycbyApAD5xei2kBmecBtfhAVimJm8fk6a5QhFxRQZFGMuCYkF-Le1nOXmtP5wYAHKE1pN/exec";
+            "https://script.google.com/macros/s/AKfycbyuppOcJ4OtN4mLfcPZuA7pcND6ADt6fcbTy5fuRNKZ6sDmQIuqi-JlTnnUchbII-FA/exec";
         const WEBAPP_STORAGE_KEY = "gre_webapp_url";
         let APPS_SCRIPT_WEBAPP_URL = DEFAULT_APPS_SCRIPT_WEBAPP_URL;
 
@@ -177,16 +177,17 @@
         let busy = false;
 
         const REQUEST_LIMITS = {
-            PDF_DOWNLOAD_MS: 20000,
-            PDF_EXTRACT_FAST_MS: 12000,
-            PDF_EXTRACT_DEEP_MS: 25000,
-            PROCESS_TEXT_MS: 35000,
-            JSONP_FALLBACK_MS: 70000,
-            FAST_MAX_PAGES: 2,
-            DEEP_MAX_PAGES: 6,
+            PDF_DOWNLOAD_MS: 9000,
+            PDF_EXTRACT_FAST_MS: 3500,
+            PDF_EXTRACT_DEEP_MS: 6000,
+            PROCESS_TEXT_MS: 9000,
+            JSONP_FALLBACK_MS: 15000,
+            FAST_MAX_PAGES: 1,
+            DEEP_MAX_PAGES: 2,
             MAX_TEXT_CHARS: 120000,
             RAW_PREVIEW_CHARS: 7000
         };
+        const ENABLE_SERVER_FALLBACK = false;
 
         function toggleBusy(isBusy, msg = "Procesando...") {
             busy = isBusy;
@@ -362,7 +363,7 @@
         function hasCoreGuideSignals_(text) {
             const s = String(text || "");
             const hasRuc = /\bRUC\b[^\d]{0,20}\d{11}/i.test(s) || /\b\d{11}\b/.test(s);
-            const hasSerieDoc = /\b[A-Z0-9]{3,4}\s*[-–]\s*\d{4,12}\b/.test(s);
+            const hasSerieDoc = /\b[A-Z0-9]{3,4}\s*[-–]?\s*\d{4,12}\b/.test(s) || /N[°º]\s*[A-Z0-9]{3,4}\s*[-–]?\s*\d{4,12}/i.test(s);
             const hasGuideWord = /\bGU[IÍ]A\b/i.test(s);
             return (hasRuc && hasSerieDoc) || (hasGuideWord && hasSerieDoc);
         }
@@ -422,7 +423,7 @@
                         if (deepText.length > pdfText.length) pdfText = deepText;
                     }
 
-                    if (hasCoreGuideSignals_(pdfText)) {
+                    if (pdfText && pdfText.length > 50) {
                         toggleBusy(true, "🔍 Analizando datos...");
                         resp = await postCall({
                             action: "process_text",
@@ -435,7 +436,7 @@
                     localFlowError = fastErr;
                 }
 
-                if (!resp?.ok || !hasExtractedGuideData_(resp)) {
+                if (ENABLE_SERVER_FALLBACK && (!resp?.ok || !hasExtractedGuideData_(resp))) {
                     toggleBusy(true, "♻️ Reintentando en servidor...");
                     resp = await jsonpCall({
                         action: "process",
@@ -446,6 +447,10 @@
                 if (!resp?.ok) {
                     const fastMsg = localFlowError ? ` | Detalle ruta rápida: ${localFlowError.message}` : "";
                     throw new Error((resp?.error || "Respuesta inválida de API") + fastMsg);
+                }
+                if (!hasExtractedGuideData_(resp)) {
+                    const fastMsg = localFlowError ? ` | Detalle ruta rápida: ${localFlowError.message}` : "";
+                    throw new Error("No se pudo extraer N_SERIE/N_DOCUMENTO de forma confiable. Reescanea o verifica luz/enfoque." + fastMsg);
                 }
                 toggleBusy(true, "💾 Guardando...");
                 renderResponse(resp);
@@ -546,6 +551,7 @@
             }
             const resp = await fetchWithTimeout_(APPS_SCRIPT_WEBAPP_URL, {
                 method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
                 signal
             }, timeoutMs, "procesamiento");
